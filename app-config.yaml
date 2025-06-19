@@ -173,11 +173,6 @@ ansible:
     :
       type: file
       target: ''
-    schedule:
-      frequency:
-        hours: 24
-      timeout:
-        minutes: 1
   creatorService:
     baseUrl: 'localhost'
     port: '8000'
