@@ -119,8 +119,8 @@ jobs:
       - name: Prepare Sonar arguments
         id: sonar-args
         run: |
-            echo "SONAR_ARGS=-Dsonar.organization=ansible \
-            -Dsonar.projectKey=ansible_ansible-backstage-plugins \
+            echo "SONAR_ARGS=-Dsonar.organization=${{ secrets.SONAR_ORG }} \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
             -Dsonar.projectName='ansible-backstage-plugins' \
             -Dsonar.sources=plugins \
             -Dsonar.tests=plugins \
