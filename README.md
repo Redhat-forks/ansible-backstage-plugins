@@ -88,8 +88,8 @@ Before setting up the development environment, ensure you have:
 1. **Clone the Repository**
 
 ```bash
-git clone https://github.com/ansible/ansible-backstage-plugins.git
-cd ansible-backstage-plugins
+git clone https://github.com/ansible/backstage-plugins-ansible.git
+cd backstage-plugins-ansible
 ```
 
 2. **Install Dependencies**
@@ -286,13 +286,12 @@ Normal startup logs include:
 ## Repository Structure
 
 ```
-ansible-backstage-plugins/
+backstage-plugins-ansible/
 ├── packages/                  # Core Backstage application
 │   ├── app/                  # Frontend React application
 │   └── backend/              # Backend Node.js service
 │
 ├── plugins/                   # Ansible-specific plugins
-│   ├── backstage-rhaap/                    # Frontend plugin for AAP
 │   ├── backstage-rhaap-common/             # Shared utilities and types
 │   ├── auth-backend-module-rhaap-provider/ # Authentication provider
 │   ├── catalog-backend-module-rhaap/       # Catalog integration
@@ -318,17 +317,6 @@ ansible-backstage-plugins/
 ## Available Plugins
 
 ### Frontend Plugins
-
-#### [@ansible/plugin-backstage-rhaap](./plugins/backstage-rhaap)
-
-Main frontend plugin providing UI for browsing and interacting with AAP resources.
-
-**Features**:
-
-- Job template browser and launcher
-- Inventory management views
-- Project and credential views
-- Job execution history
 
 #### [@ansible/plugin-self-service](./plugins/self-service)
 
@@ -437,7 +425,7 @@ yarn build-image
 yarn export-local
 
 # Export to container image
-yarn export-dynamic --tag quay.io/your-org/ansible-backstage-plugins:latest
+yarn export-dynamic --tag quay.io/your-org/backstage-plugins-ansible:latest
 ```
 
 ### Linting and Formatting
@@ -567,10 +555,10 @@ yarn tsc
 
 If you encounter issues:
 
-1. Check existing [GitHub Issues](https://github.com/ansible/ansible-backstage-plugins/issues)
+1. Check existing [GitHub Issues](https://github.com/ansible/backstage-plugins-ansible/issues)
 2. Review plugin-specific README files
 3. Consult the [Documentation](#documentation)
-4. Ask in [GitHub Discussions](https://github.com/ansible/ansible-backstage-plugins/discussions)
+4. Ask in [GitHub Discussions](https://github.com/ansible/backstage-plugins-ansible/discussions)
 5. Contact ansible-devtools@redhat.com
 
 ## Documentation
@@ -689,8 +677,8 @@ This project is actively maintained by the Ansible team at Red Hat. We appreciat
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/ansible/ansible-backstage-plugins/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/ansible/ansible-backstage-plugins/discussions)
+- **Issues**: [GitHub Issues](https://github.com/ansible/backstage-plugins-ansible/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ansible/backstage-plugins-ansible/discussions)
 - **Email**: ansible-devtools@redhat.com
 
 ---

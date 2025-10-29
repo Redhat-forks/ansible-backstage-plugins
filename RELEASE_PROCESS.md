@@ -18,7 +18,7 @@ This document outlines the release process for the Ansible Backstage Plugins pro
 
 ## Overview
 
-The Ansible Backstage Plugins project maintains releases through Git tags and release markers. This repository is focused on code distribution rather than binary artifacts, so **no release assets are uploaded upstream**.
+The Ansible Backstage Plugins project maintains releases through Git tags and release markers. This repository is focused on code distribution rather than binary artifacts.
 
 ## Release Strategy
 
@@ -420,7 +420,7 @@ If internal and upstream diverge:
 ```bash
 # Sync upstream changes to internal
 cd internal-repo
-git remote add upstream https://github.com/ansible/ansible-backstage-plugins.git
+git remote add upstream https://github.com/ansible/backstage-plugins-ansible.git
 git fetch upstream
 git merge upstream/main
 
