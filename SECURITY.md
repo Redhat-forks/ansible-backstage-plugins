@@ -98,7 +98,6 @@ This project uses the following security tools:
 Security updates will be:
 
 - Released as patch versions for supported releases
-- Documented in the CHANGELOG with a `[Security]` prefix
 - Announced through GitHub Security Advisories
 - Communicated to the community via project channels
 
