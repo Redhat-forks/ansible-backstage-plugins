@@ -1,6 +1,6 @@
 # Release Process
 
-This document outlines the release process for the Backstage Plugins for Ansible project, including version management, tagging strategy, and coordination between internal and upstream releases.
+This document outlines the release process for the Ansible Backstage Plugins project, including version management, tagging strategy, and coordination between internal and upstream releases.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ This document outlines the release process for the Backstage Plugins for Ansible
 
 ## Overview
 
-The Backstage Plugins for Ansible project maintains releases through Git tags and release markers. This repository is focused on code distribution rather than binary artifacts.
+The Ansible Backstage Plugins project maintains releases through Git tags and release markers. This repository is focused on code distribution rather than binary artifacts.
 
 ## Release Strategy
 

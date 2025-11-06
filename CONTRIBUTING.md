@@ -1,6 +1,6 @@
-# Contributing to Backstage Plugins for Ansible
+# Contributing to Ansible Backstage Plugins
 
-Thank you for your interest in contributing to the Backstage Plugins for Ansible project! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to the Ansible Backstage Plugins project! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -398,7 +398,7 @@ By contributing, you agree that your contributions will be licensed under the Ap
 
 ## Thank You!
 
-Thank you for contributing to Backstage Plugins for Ansible! Your contributions help make this project better for everyone in the Ansible and Backstage communities.
+Thank you for contributing to Ansible Backstage Plugins! Your contributions help make this project better for everyone in the Ansible and Backstage communities.
 
 ---
 
