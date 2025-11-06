@@ -1,34 +1,30 @@
 # Release Process
 
-This document outlines the release process for the Ansible Backstage Plugins project, including version management, tagging strategy, and coordination between internal and upstream releases.
+This document outlines the release process for the Backstage Plugins for Ansible project, including version management, tagging strategy, and coordination between internal and upstream releases.
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Release Strategy](#release-strategy)
 - [Version Numbering](#version-numbering)
-- [Release Types](#release-types)
 - [Release Workflow](#release-workflow)
-- [Tagging Strategy](#tagging-strategy)
-- [Release Notes](#release-notes)
-- [Upstream Release Policy](#upstream-release-policy)
-- [Internal vs. Upstream Coordination](#internal-vs-upstream-coordination)
 - [Hotfix Process](#hotfix-process)
-- [Post-Release Tasks](#post-release-tasks)
+- [Best Practices](#best-practices)
+- [Related Documentation](#related-documentation)
+- [Contact](#contact)
 
 ## Overview
 
-The Ansible Backstage Plugins project maintains releases through Git tags and release markers. This repository is focused on code distribution rather than binary artifacts.
+The Backstage Plugins for Ansible project maintains releases through Git tags and release markers. This repository is focused on code distribution rather than binary artifacts.
 
 ## Release Strategy
 
 ### Key Principles
 
 1. **Tags Mark Releases**: Git tags identify release points in the codebase
-2. **No Binary Assets**: Source code only; users build from source
-3. **Semantic Versioning**: Follow semver for predictable version management
-4. **Coordinated Releases**: Align internal and upstream releases when appropriate
-5. **Transparent Process**: Document all releases in release notes
+2. **Semantic Versioning**: Follow semver for predictable version management
+3. **Coordinated Releases**: Align internal and upstream releases when appropriate
+4. **Transparent Process**: Document all releases in release notes
 
 ### Release Cadence
 
@@ -69,36 +65,6 @@ A breaking change requires a major version bump and includes:
 - Modifying configuration schema in non-backward-compatible ways
 - Changing plugin IDs or routes
 - Updating minimum supported versions of dependencies (Node.js, Backstage)
-
-## Release Types
-
-### Stable Release (1.x.x)
-
-- Production-ready code
-- Full test coverage
-- Complete documentation
-- No known critical bugs
-
-### Release Candidate (1.x.x-rc.N)
-
-- Feature complete
-- Final testing phase
-- May have minor known issues
-- Used for validation before stable release
-
-### Beta Release (1.x.x-beta.N)
-
-- Feature preview
-- API may still change
-- Used for early feedback
-- Not recommended for production
-
-### Alpha Release (1.x.x-alpha.N)
-
-- Experimental features
-- Unstable API
-- For development and testing only
-- Subject to significant changes
 
 ## Release Workflow
 
@@ -196,202 +162,6 @@ While we don't upload release assets, we can create GitHub releases for document
 
 **Note**: Do not upload any build artifacts or compiled files.
 
-## Tagging Strategy
-
-### Tag Format
-
-```
-v<MAJOR>.<MINOR>.<PATCH>[-PRERELEASE]
-
-Examples:
-- v1.0.0
-- v1.2.0-rc.1
-- v2.0.0-beta.1
-```
-
-### Tag Annotations
-
-Always use annotated tags (not lightweight tags):
-
-```bash
-# Good: Annotated tag with message
-git tag -a v1.2.0 -m "Release version 1.2.0"
-
-# Bad: Lightweight tag
-git tag v1.2.0
-```
-
-### Multiple Plugin Releases
-
-If plugins have different versions, use plugin-specific tags:
-
-```bash
-# Tag individual plugins
-git tag -a backstage-rhaap-v1.2.0 -m "Release backstage-rhaap v1.2.0"
-git tag -a self-service-v1.1.0 -m "Release self-service v1.1.0"
-
-# Or use a unified tag for all plugins
-git tag -a v1.2.0 -m "Release all plugins v1.2.0"
-```
-
-### Managing Tags
-
-```bash
-# List all tags
-git tag -l
-
-# Show tag details
-git show v1.2.0
-
-# Delete a local tag
-git tag -d v1.2.0
-
-# Delete a remote tag (use with caution!)
-git push origin :refs/tags/v1.2.0
-
-# Fetch all tags
-git fetch --tags
-```
-
-## Release Notes
-
-### Format
-
-Follow this structure for release notes:
-
-```markdown
-# Release v1.2.0
-
-**Release Date**: October 27, 2025
-
-**Summary**: Brief description of this release
-
-## Highlights
-
-- Major feature 1
-- Major feature 2
-- Important fix
-
-## Breaking Changes
-
-⚠️ **Breaking Change**: Description of breaking change
-
-Migration guide: [Link to documentation]
-
-## New Features
-
-- **Job Template Filtering** (#123): Filter templates by organization
-- **Inventory Management** (#124): Organization-based inventory views
-
-## Improvements
-
-- Improved error messages in AAP client (#125)
-- Better loading states in UI components (#130)
-
-## Bug Fixes
-
-- Fixed crash when inventory list is empty (#126)
-- Corrected scaffolder action parameters (#127)
-
-## Dependencies
-
-- Updated Backstage to v1.39.1
-- Updated Material-UI components
-- Security updates for dependencies
-
-## Upgrade Notes
-
-1. Update your app-config.yaml if using new features
-2. Run `yarn install` to update dependencies
-3. Clear browser cache if experiencing UI issues
-
-## Contributors
-
-Thank you to all contributors who made this release possible!
-
-- @contributor1
-- @contributor2
-- @contributor3
-```
-
-## Upstream Release Policy
-
-### What Gets Released Upstream
-
-✅ **Released Upstream**:
-
-- Source code (all commits)
-- Git tags marking releases
-- Documentation
-- Configuration examples
-- Tests
-
-❌ **NOT Released Upstream**:
-
-- Build artifacts (dist files, bundles)
-- Compiled binaries
-- Container images
-- Dynamic plugin packages
-- Release asset files
-
-### Rationale
-
-The upstream repository serves as the canonical source for:
-
-1. **Source Code Distribution**: Users and contributors access the latest source
-2. **Version Tracking**: Tags mark stable points in development
-3. **Collaboration**: Issues, PRs, and discussions happen upstream
-4. **Transparency**: Open source development in public
-
-Build artifacts and packages are:
-
-- Generated by users from source
-- Published to package registries (npm) separately
-- Distributed through container registries (Quay.io) separately
-- Not part of the source repository
-
-## Internal vs. Upstream Coordination
-
-### Synchronization Strategy
-
-#### Continuous Sync (Recommended)
-
-- Develop in upstream repository directly
-- Internal builds pull from upstream tags
-- Minimal divergence between internal and upstream
-
-#### Periodic Sync
-
-- Develop in internal repository
-- Sync to upstream at release milestones
-- Review and sanitize before pushing upstream
-- Ensure commit history is clean
-
-### Release Coordination
-
-1. **Prepare Release**: Complete features in upstream
-2. **Tag Upstream**: Create release tag in upstream repository
-3. **Build Internally**: Trigger internal builds from upstream tag
-4. **Distribute**: Publish artifacts through appropriate channels
-5. **Announce**: Announce release in both internal and external channels
-
-### Handling Discrepancies
-
-If internal and upstream diverge:
-
-```bash
-# Sync upstream changes to internal
-cd internal-repo
-git remote add upstream https://github.com/ansible/backstage-plugins-ansible.git
-git fetch upstream
-git merge upstream/main
-
-# Or rebase internal changes
-git rebase upstream/main
-
-# Resolve conflicts and push
-git push origin main
-```
 
 ## Hotfix Process
 
@@ -439,52 +209,6 @@ git push origin v1.2.1
 - Notify users through appropriate channels
 - Update security advisory if applicable
 
-## Post-Release Tasks
-
-### 1. Verify Release
-
-```bash
-# Verify tag exists
-git ls-remote --tags origin | grep v1.2.0
-
-# Verify commit is correct
-git show v1.2.0
-```
-
-### 2. Update Documentation
-
-- Update installation instructions with new version
-- Update plugin compatibility matrix
-- Refresh example configurations
-
-### 3. Communicate Release
-
-- Announce on GitHub Discussions
-- Post to relevant community channels
-- Update project website/documentation
-
-### 4. Monitor for Issues
-
-- Watch for bug reports related to the release
-- Monitor community feedback
-- Be prepared for hotfix if needed
-
-### 5. Plan Next Release
-
-- Review roadmap
-- Prioritize next features
-- Set target date for next release
-
-## Automation Considerations
-
-While CI/CD is excluded from this repository, release automation may include:
-
-- Automated version bumping
-- Tag creation from CI/CD pipeline
-- Notification systems for releases
-
-These are implemented in internal CI/CD systems, not in this repository.
-
 ## Best Practices
 
 1. **Always Test Before Tagging**: Run full test suite
@@ -506,7 +230,6 @@ These are implemented in internal CI/CD systems, not in this repository.
 For questions about the release process:
 
 - **General Questions**: Open a GitHub Discussion
-- **Release Planning**: ansible-devtools@redhat.com
 - **Security Releases**: secalert@redhat.com
 
 ---
