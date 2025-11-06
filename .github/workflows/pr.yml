@@ -128,14 +128,14 @@ jobs:
     if: ${{ always() }}
     name: check
     needs:
-      - build
+      - docs
       - test
     runs-on: ubuntu-latest
     steps:
       - run: >-
           python -c "assert 'failure' not in
           set([
-          '${{ needs.build.result }}',
+          '${{ needs.docs.result }}',
           '${{ needs.test.result }}'
           ])"
           
