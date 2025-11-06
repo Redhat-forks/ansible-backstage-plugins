@@ -162,7 +162,6 @@ While we don't upload release assets, we can create GitHub releases for document
 
 **Note**: Do not upload any build artifacts or compiled files.
 
-
 ## Hotfix Process
 
 For critical bugs or security vulnerabilities:
