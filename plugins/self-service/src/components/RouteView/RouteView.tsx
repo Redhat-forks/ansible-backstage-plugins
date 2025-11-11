@@ -10,6 +10,8 @@ import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
+import { EETabs } from '../ExecutionEnvironments';
+import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
 
 export const RouteView = () => {
   return (
@@ -56,6 +58,8 @@ export const RouteView = () => {
             }
           />
         </Route>
+        <Route path="ee" element={<EETabs />} />
+        <Route path="EEDetailsPage/:templateName" element={<EEDetailsPage />} />
         {/* Default redirects */}
         <Route
           path="/catalog/*"
