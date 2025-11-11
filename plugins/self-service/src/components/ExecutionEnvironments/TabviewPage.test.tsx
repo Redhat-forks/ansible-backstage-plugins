@@ -40,7 +40,7 @@ jest.mock('./catalog/CatalogContent', () => ({
   ),
 }));
 
-jest.mock('./create/CreateContent', () => ({
+jest.mock('./create/CreateContent.tsx', () => ({
   CreateContent: () => <div data-testid="create-content">CreateContent</div>,
 }));
 
