@@ -31,7 +31,9 @@ jest.mock('@material-ui/core/styles', () => {
   return {
     ...actual,
     makeStyles: (fn: any) => () => ({}),
-    withStyles: (styles: any) => (Comp: any) => (props: any) => <Comp {...props} />,
+    withStyles: (styles: any) => (Comp: any) => (props: any) => (
+      <Comp {...props} />
+    ),
   };
 });
 
@@ -116,7 +118,9 @@ describe('Favourites component', () => {
     // message shown when no starred entries
     expect(screen.getByTestId('no-starred-list')).toBeInTheDocument();
     expect(
-      screen.getByText(/Click the star beside an Ansible entity name to add it to this list!/i),
+      screen.getByText(
+        /Click the star beside an Ansible entity name to add it to this list!/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -146,7 +150,8 @@ describe('Favourites component', () => {
 
     // isStarredEntity returns true for both items
     mockedUseStarredEntities.mockReturnValue({
-      isStarredEntity: (entity: any) => ['template-1', 'comp-2'].includes(entity.metadata.name),
+      isStarredEntity: (entity: any) =>
+        ['template-1', 'comp-2'].includes(entity.metadata.name),
     } as any);
 
     mockedUseApi.mockReturnValue({ getEntities: jest.fn() });
