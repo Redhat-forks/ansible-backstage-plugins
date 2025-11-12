@@ -175,7 +175,7 @@ describe('CollectionsPickerExtension', () => {
 
     it('closes dialog when Cancel button is clicked', async () => {
       const props = createMockProps();
-      const { container } = render(<CollectionsPickerExtension {...props} />);
+      render(<CollectionsPickerExtension {...props} />);
 
       const addButton = screen.getByText('Add Collection Manually');
       fireEvent.click(addButton);
@@ -186,14 +186,14 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(cancelButton);
 
       await waitFor(() => {
-        const dialog = container.querySelector('.MuiDialog-root');
+        const dialog = document.querySelector('.MuiDialog-root');
         expect(dialog).not.toBeInTheDocument();
       });
     });
 
     it('closes dialog when close icon is clicked', async () => {
       const props = createMockProps();
-      const { container } = render(<CollectionsPickerExtension {...props} />);
+      render(<CollectionsPickerExtension {...props} />);
 
       const addButton = screen.getByText('Add Collection Manually');
       fireEvent.click(addButton);
@@ -204,7 +204,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(closeButton);
 
       await waitFor(() => {
-        const dialog = container.querySelector('.MuiDialog-root');
+        const dialog = document.querySelector('.MuiDialog-root');
         expect(dialog).not.toBeInTheDocument();
       });
     });
@@ -337,7 +337,7 @@ describe('CollectionsPickerExtension', () => {
 
     it('closes dialog after adding collection', async () => {
       const props = createMockProps();
-      const { container } = render(<CollectionsPickerExtension {...props} />);
+      render(<CollectionsPickerExtension {...props} />);
 
       const addButton = screen.getByText('Add Collection Manually');
       fireEvent.click(addButton);
@@ -351,7 +351,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        const dialog = container.querySelector('.MuiDialog-root');
+        const dialog = document.querySelector('.MuiDialog-root');
         expect(dialog).not.toBeInTheDocument();
       });
     });
@@ -1500,6 +1500,566 @@ describe('CollectionsPickerExtension', () => {
       expect(
         screen.getByRole('link', { name: /Click here/i }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('Enum Field Support', () => {
+    it('renders Select dropdown for fields with enum property', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                description: 'Determines the source of the collection.',
+                enum: ['file', 'galaxy', 'git', 'url', 'dir', 'subdirs'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Type (Optional)')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        const select = dialog?.querySelector('[aria-haspopup="listbox"]');
+        expect(select).toBeInTheDocument();
+      });
+    });
+
+    it('renders TextField for fields without enum property', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              version: {
+                type: 'string' as const,
+                title: 'Version (Optional)',
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const versionInput = screen.getByPlaceholderText('e.g., 7.2.1');
+      expect(versionInput).toBeInTheDocument();
+      expect(versionInput.tagName).toBe('INPUT');
+    });
+
+    it('displays all enum options in Select dropdown', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy', 'git', 'url', 'dir', 'subdirs'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      let select: HTMLElement | null = null;
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        select = dialog?.querySelector(
+          '[aria-haspopup="listbox"]',
+        ) as HTMLElement;
+        expect(select).toBeInTheDocument();
+      });
+
+      if (select) {
+        fireEvent.mouseDown(select);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('file')).toBeInTheDocument();
+      });
+      expect(screen.getByText('galaxy')).toBeInTheDocument();
+      expect(screen.getByText('git')).toBeInTheDocument();
+      expect(screen.getByText('url')).toBeInTheDocument();
+      expect(screen.getByText('dir')).toBeInTheDocument();
+      expect(screen.getByText('subdirs')).toBeInTheDocument();
+    });
+
+    it('uses enumNames when provided for display labels', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy', 'git'],
+                enumNames: ['File System', 'Ansible Galaxy', 'Git Repository'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      let select: HTMLElement | null = null;
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        select = dialog?.querySelector(
+          '[aria-haspopup="listbox"]',
+        ) as HTMLElement;
+        expect(select).toBeInTheDocument();
+      });
+
+      if (select) {
+        fireEvent.mouseDown(select);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('File System')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Ansible Galaxy')).toBeInTheDocument();
+      expect(screen.getByText('Git Repository')).toBeInTheDocument();
+    });
+
+    it('falls back to enum value when enumNames not provided', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      let select: HTMLElement | null = null;
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        select = dialog?.querySelector(
+          '[aria-haspopup="listbox"]',
+        ) as HTMLElement;
+        expect(select).toBeInTheDocument();
+      });
+
+      if (select) {
+        fireEvent.mouseDown(select);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('file')).toBeInTheDocument();
+      });
+      expect(screen.getByText('galaxy')).toBeInTheDocument();
+    });
+
+    it('allows selecting enum value from dropdown', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+                'ui:placeholder': 'e.g., community.general',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy', 'git'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByPlaceholderText('e.g., community.general'),
+        ).toBeInTheDocument();
+      });
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      let select: HTMLElement | null = null;
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        select = dialog?.querySelector(
+          '[aria-haspopup="listbox"]',
+        ) as HTMLElement;
+        expect(select).toBeInTheDocument();
+      });
+
+      if (select) {
+        fireEvent.mouseDown(select);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('galaxy')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('galaxy'));
+
+      const dialog = document.querySelector('.MuiDialog-root');
+      const selectInput = dialog?.querySelector(
+        'input[aria-hidden="true"]',
+      ) as HTMLInputElement;
+      expect(selectInput).toHaveValue('galaxy');
+    });
+
+    it('adds collection with enum field value', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+                'ui:placeholder': 'e.g., community.general',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy', 'git'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByPlaceholderText('e.g., community.general'),
+        ).toBeInTheDocument();
+      });
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      let select: HTMLElement | null = null;
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        select = dialog?.querySelector(
+          '[aria-haspopup="listbox"]',
+        ) as HTMLElement;
+        expect(select).toBeInTheDocument();
+      });
+
+      if (select) {
+        fireEvent.mouseDown(select);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('galaxy')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('galaxy'));
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'community.general', type: 'galaxy' },
+      ]);
+    });
+
+    it('handles enum field with empty value (optional field)', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+                'ui:placeholder': 'e.g., community.general',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy', 'git'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'community.general' },
+      ]);
+    });
+
+    it('displays description for enum field', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                description: 'Determines the source of the collection.',
+                enum: ['file', 'galaxy'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      expect(
+        screen.getByText('Determines the source of the collection.'),
+      ).toBeInTheDocument();
+    });
+
+    it('works with multiple enum fields in same form', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+                'ui:placeholder': 'e.g., community.general',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type',
+                enum: ['file', 'galaxy'],
+              },
+              source: {
+                type: 'string' as const,
+                title: 'Source',
+                enum: ['local', 'remote'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        const foundSelects = dialog?.querySelectorAll(
+          '[aria-haspopup="listbox"]',
+        );
+        expect(foundSelects?.length).toBe(2);
+      });
+
+      const dialog = document.querySelector('.MuiDialog-root');
+      const selects = dialog?.querySelectorAll('[aria-haspopup="listbox"]');
+      expect(selects).toBeDefined();
+      expect(selects?.length).toBe(2);
+
+      if (selects && selects.length > 0) {
+        const typeSelect = selects[0] as HTMLElement;
+        fireEvent.mouseDown(typeSelect);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('file')).toBeInTheDocument();
+      });
+      expect(screen.getByText('galaxy')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('file'));
+
+      if (selects && selects.length > 1) {
+        const sourceSelect = selects[1] as HTMLElement;
+        fireEvent.mouseDown(sourceSelect);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('local')).toBeInTheDocument();
+      });
+      expect(screen.getByText('remote')).toBeInTheDocument();
+    });
+
+    it('handles enum field alongside text fields', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+                'ui:placeholder': 'e.g., community.general, abc.abc',
+              },
+              version: {
+                type: 'string' as const,
+                title: 'Version (Optional)',
+                'ui:placeholder': 'e.g., 7.2.1',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy', 'git'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByPlaceholderText('e.g., community.general, abc.abc'),
+        ).toBeInTheDocument();
+      });
+
+      const nameInput = screen.getByPlaceholderText(
+        'e.g., community.general, abc.abc',
+      );
+      const versionInput = screen.getByPlaceholderText('e.g., 7.2.1');
+
+      let typeSelect: HTMLElement | null = null;
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+        typeSelect = dialog?.querySelector(
+          '[aria-haspopup="listbox"]',
+        ) as HTMLElement;
+        expect(typeSelect).toBeInTheDocument();
+      });
+
+      expect(nameInput).toBeInTheDocument();
+      expect(versionInput).toBeInTheDocument();
+      expect(typeSelect).toBeInTheDocument();
+
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+      fireEvent.change(versionInput, { target: { value: '7.2.1' } });
+
+      if (typeSelect) {
+        fireEvent.mouseDown(typeSelect);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('galaxy')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('galaxy'));
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'community.general', version: '7.2.1', type: 'galaxy' },
+      ]);
+    });
+
+    it('disables enum field when disabled prop is true', () => {
+      const props = createMockProps({
+        disabled: true,
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type (Optional)',
+                enum: ['file', 'galaxy'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      expect(addButton.closest('button')).toHaveAttribute('disabled');
     });
   });
 

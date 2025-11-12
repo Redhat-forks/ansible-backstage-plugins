@@ -11,6 +11,10 @@ import {
   DialogActions,
   IconButton,
   Chip,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
@@ -125,6 +129,8 @@ export const CollectionsPickerExtension = ({
           defaultPlaceholder,
         pattern: fieldSchema.pattern,
         required: itemsSchema?.required?.includes(fieldName) || false,
+        enum: fieldSchema.enum || null,
+        enumNames: fieldSchema.enumNames || null,
       };
     },
     [properties, itemsSchema?.required],
@@ -194,8 +200,9 @@ export const CollectionsPickerExtension = ({
   };
 
   const handleFieldChange =
-    (fieldName: string) => (event: ChangeEvent<HTMLInputElement>) => {
-      const value = event.target.value;
+    (fieldName: string) =>
+    (event: ChangeEvent<{ name?: string; value: unknown }>) => {
+      const value = event.target.value as string;
       setNewCollection({ ...newCollection, [fieldName]: value });
 
       if (fieldName === 'name') {
@@ -274,6 +281,49 @@ export const CollectionsPickerExtension = ({
           {fieldNames.map(fieldName => {
             const fieldMeta = getFieldMetadata(fieldName);
             const isNameField = fieldName === 'name';
+            const hasEnum =
+              fieldMeta.enum &&
+              Array.isArray(fieldMeta.enum) &&
+              fieldMeta.enum.length > 0;
+
+            if (hasEnum) {
+              return (
+                <FormControl
+                  key={fieldName}
+                  fullWidth
+                  className={classes.inputField}
+                  required={fieldMeta.required}
+                >
+                  <InputLabel>{fieldMeta.title}</InputLabel>
+                  <Select
+                    value={newCollection[fieldName] || ''}
+                    onChange={handleFieldChange(fieldName)}
+                    label={fieldMeta.title}
+                    disabled={disabled}
+                  >
+                    {fieldMeta.enum.map((enumValue: string, index: number) => {
+                      const displayLabel = fieldMeta.enumNames?.[index]
+                        ? fieldMeta.enumNames[index]
+                        : enumValue;
+                      return (
+                        <MenuItem key={enumValue} value={enumValue}>
+                          {displayLabel}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                  {fieldMeta.description && (
+                    <Typography
+                      variant="caption"
+                      color="textSecondary"
+                      style={{ marginTop: '4px' }}
+                    >
+                      {fieldMeta.description}
+                    </Typography>
+                  )}
+                </FormControl>
+              );
+            }
 
             return (
               <TextField
@@ -291,6 +341,7 @@ export const CollectionsPickerExtension = ({
                 }
                 error={isNameField && !!nameError}
                 required={fieldMeta.required}
+                disabled={disabled}
               />
             );
           })}
