@@ -51,6 +51,11 @@ export function prepareForPublishAction(options: {
               'The URL of the repository generated from SCM integration settings',
             type: 'string',
           },
+          normalizedRepoUrl: {
+            title:
+              'The normalized URL of the repository (used for catalog component registration)',
+            type: 'string',
+          },
           generatedTitle: {
             title: 'The title of the PR/MR',
             type: 'string',
@@ -128,6 +133,23 @@ export function prepareForPublishAction(options: {
         });
         logger.info(`Generated repository URL: ${generatedRepoUrl}`);
         ctx.output('generatedRepoUrl', generatedRepoUrl);
+
+        // create a normalized repository URL (required for catalog component registration)
+        let normalizedRepoUrl;
+        try {
+          const [hostPart, queryPart] = generatedRepoUrl.split('?');
+          const params = new URLSearchParams(queryPart);
+          const repo = params.get('repo');
+          const repoOwner = params.get('owner');
+
+          if (repo && repoOwner) {
+            normalizedRepoUrl = `${hostPart}/${repoOwner}/${repo}`;
+          }
+        } catch (e) {
+          normalizedRepoUrl = '';
+        }
+        logger.info(`Normalized repository URL: ${normalizedRepoUrl}`);
+        ctx.output('normalizedRepoUrl', normalizedRepoUrl);
 
         // TO-DO: make the default branch name configurable
         let branchName = 'main';

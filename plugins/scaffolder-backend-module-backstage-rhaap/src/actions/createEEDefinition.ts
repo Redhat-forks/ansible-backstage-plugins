@@ -9,6 +9,9 @@ import {
   EEDefinitionSchema,
 } from './helpers/schemas';
 import { parseUploadedFileContent } from './utils/utils';
+import { AuthService } from '@backstage/backend-plugin-api';
+import { DiscoveryService } from '@backstage/backend-plugin-api';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 
 interface Collection {
   name: string;
@@ -33,6 +36,10 @@ interface AdditionalBuildStep {
 
 interface EEDefinitionInput {
   eeFileName: string;
+  eeDescription: string;
+  customBaseImage?: string;
+  tags: string[];
+  publishToSCM: boolean;
   baseImage: string;
   collections?: Collection[];
   popularCollections?: string[];
@@ -43,11 +50,18 @@ interface EEDefinitionInput {
   systemPackagesFile?: string;
   mcpServers?: string[];
   additionalBuildSteps?: AdditionalBuildStep[];
+  sourceControlProvider?: string;
+  repositoryOwner?: string;
+  repositoryName?: string;
 }
 
-export function createEEDefinitionAction() {
+export function createEEDefinitionAction(options: {
+  auth: AuthService;
+  discovery: DiscoveryService;
+}) {
+  const { auth, discovery } = options;
   return createTemplateAction({
-    id: 'ansible:ee:create-definition',
+    id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',
     schema: {
       input: {
@@ -63,10 +77,27 @@ export function createEEDefinitionAction() {
                 description: 'Name of the execution environment file',
                 type: 'string',
               },
-              baseImage: {
-                title: 'Base Image',
+              eeDescription: {
+                title: 'Execution Environment Description',
+                description: 'Description for the saved Execution Environment',
+                type: 'string',
+              },
+              tags: {
+                title: 'Tags',
                 description:
-                  'Container base image for the execution environment',
+                  'Tags to be included in the execution environment definition file',
+                type: 'array',
+                items: { type: 'string' },
+              },
+              publishToSCM: {
+                title: 'Publish to a SCM repository',
+                description:
+                  'Publish the Execution Environment definition and template to a SCM repository',
+                type: 'boolean',
+              },
+              customBaseImage: {
+                title: 'Custom Base Image',
+                description: 'Custom base image for the execution environment',
                 type: 'string',
               },
               collections: {
@@ -154,6 +185,7 @@ export function createEEDefinitionAction() {
                 title: 'Additional Build Steps',
                 description: 'Custom build steps for the execution environment',
                 type: 'array',
+                default: [],
                 items: {
                   type: 'object',
                   properties: {
@@ -180,6 +212,24 @@ export function createEEDefinitionAction() {
                   required: ['stepType', 'commands'],
                 },
               },
+              sourceControlProvider: {
+                title: 'Source Control Provider',
+                description:
+                  'Source control provider to use for the execution environment',
+                type: 'string',
+              },
+              repositoryOwner: {
+                title: 'Repository Owner',
+                description:
+                  'Owner of the repository to publish the execution environment definition files to',
+                type: 'string',
+              },
+              repositoryName: {
+                title: 'Repository Name',
+                description:
+                  'Name of the repository to publish the execution environment definition files to',
+                type: 'string',
+              },
             },
           },
         },
@@ -187,45 +237,21 @@ export function createEEDefinitionAction() {
       output: {
         type: 'object',
         properties: {
-          collections: {
-            title: 'Collections',
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: {
-                  type: 'string',
-                },
-                version: {
-                  type: 'string',
-                },
-              },
-            },
-          },
-          pythonRequirements: {
-            title: 'Python Requirements',
-            type: 'array',
-            items: {
-              type: 'string',
-            },
-          },
-          systemPackages: {
-            title: 'System Packages',
-            type: 'array',
-            items: {
-              type: 'string',
-            },
-          },
           contextDirName: {
             title: 'Directory in the workspace where the files will created',
             type: 'string',
           },
-          buildCommand: {
-            title: 'Ansible Builder Command',
-            type: 'string',
-          },
           eeDefinitionContent: {
             title: 'EE Definition Content',
+            type: 'string',
+          },
+          generatedEntityRef: {
+            title:
+              'Generated entity reference (for dynamically registered catalog entities ONLY)',
+            type: 'string',
+          },
+          owner: {
+            title: 'Owner of the execution environment',
             type: 'string',
           },
           readmeContent: {
@@ -238,6 +264,7 @@ export function createEEDefinitionAction() {
     async handler(ctx) {
       const { input, logger, workspacePath } = ctx;
       const values = input.values as unknown as EEDefinitionInput;
+      const baseImage = values.baseImage;
       const collections = values.collections || [];
       const popularCollections = values.popularCollections || [];
       const collectionsFile = values.collectionsFile || '';
@@ -247,15 +274,23 @@ export function createEEDefinitionAction() {
       const systemPackagesFile = values.systemPackagesFile || '';
       const mcpServers = values.mcpServers || [];
       const additionalBuildSteps = values.additionalBuildSteps || [];
+      const eeFileName = values.eeFileName || 'execution-environment';
+      const eeDescription = values.eeDescription || 'Execution Environment';
+      const tags = values.tags || [];
+      const owner = ctx.user?.ref || '';
+
+      // required for catalog component registration
+      ctx.output('owner', owner);
 
       // each EE created in a repository should be self contained in its own directory
-      const contextDirName = (values.eeFileName || 'execution-environment')
+      const contextDirName = (eeFileName || 'execution-environment')
         .toString()
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9-_]/g, '-')
         .replace(/-+/g, '-') // Replace multiple consecutive dashes with a single dash
         .replace(/^-|-$/g, ''); // Remove leading and trailing dashes
+
       ctx.output('contextDirName', contextDirName);
 
       // create the directory path for the EE files
@@ -264,7 +299,7 @@ export function createEEDefinitionAction() {
       await fs.mkdir(eeDir, { recursive: true });
 
       // create the path for the EE definition file
-      const eeDefinitionPath = path.join(eeDir, `${values.eeFileName}.yaml`);
+      const eeDefinitionPath = path.join(eeDir, `${eeFileName}.yaml`);
       // create the path for the README file
       const readmePath = path.join(eeDir, 'README.md');
 
@@ -275,8 +310,7 @@ export function createEEDefinitionAction() {
       // symlink the README file to the docs directory so that techdocs can pick it up
       const docsMdPath = path.join(docsDir, 'index.md');
 
-      const baseImage = values.baseImage;
-      logger.info(`[ansible:ee:create-definition] EE base image: ${baseImage}`);
+      logger.info(`[ansible:create:ee-definition] EE base image: ${baseImage}`);
 
       const decodedCollectionsContent =
         parseUploadedFileContent(collectionsFile);
@@ -319,37 +353,28 @@ export function createEEDefinitionAction() {
 
         // Merge packages from different sources
         const allPackages = mergePackages(systemPackages, parsedSystemPackages);
-
-        // Set merged values as output variable for using when building the EE template
-        ctx.output('collections', JSON.stringify(allCollections));
-        ctx.output('pythonRequirements', JSON.stringify(allRequirements));
-        ctx.output('systemPackages', JSON.stringify(allPackages));
-        ctx.output(
-          'additionalBuildSteps',
-          JSON.stringify(additionalBuildSteps),
-        );
-
         logger.info(
-          `[ansible:ee:create-definition] collections: ${JSON.stringify(allCollections)}`,
+          `[ansible:create:ee-definition] collections: ${JSON.stringify(allCollections)}`,
         );
         logger.info(
-          `[ansible:ee:create-definition] pythonRequirements: ${JSON.stringify(allRequirements)}`,
+          `[ansible:create:ee-definition] pythonRequirements: ${JSON.stringify(allRequirements)}`,
         );
         logger.info(
-          `[ansible:ee:create-definition] systemPackages: ${JSON.stringify(allPackages)}`,
+          `[ansible:create:ee-definition] systemPackages: ${JSON.stringify(allPackages)}`,
         );
         logger.info(
-          `[ansible:ee:create-definition] additionalBuildSteps: ${JSON.stringify(additionalBuildSteps)}`,
+          `[ansible:create:ee-definition] additionalBuildSteps: ${JSON.stringify(additionalBuildSteps)}`,
         );
 
         // Create merged values object
         const mergedValues = {
           ...values,
+          // these are the merged/created/updated values from the different sources
           collections: allCollections,
           pythonRequirements: allRequirements,
           systemPackages: allPackages,
+          additionalBuildSteps: additionalBuildSteps,
         };
-
         // Generate EE definition file
         const eeDefinition = generateEEDefinition(mergedValues);
         // validate the generated EE definition YAML content
@@ -358,7 +383,7 @@ export function createEEDefinitionAction() {
 
         await fs.writeFile(eeDefinitionPath, eeDefinition);
         logger.info(
-          `[ansible:ee:create-definition] created EE definition file ${values.eeFileName}.yaml at ${eeDefinitionPath}`,
+          `[ansible:create:ee-definition] created EE definition file ${eeFileName}.yaml at ${eeDefinitionPath}`,
         );
         ctx.output('eeDefinitionContent', eeDefinition);
 
@@ -366,25 +391,71 @@ export function createEEDefinitionAction() {
         const readmeContent = generateReadme(mergedValues);
         await fs.writeFile(readmePath, readmeContent);
         logger.info(
-          `[ansible:ee:create-definition] created README.md at ${readmePath}`,
+          `[ansible:create:ee-definition] created README.md at ${readmePath}`,
         );
-        ctx.output('readmeContent', readmeContent);
 
         // write README contents to docs/index.md
         await fs.writeFile(docsMdPath, readmeContent);
         logger.info(
-          `[ansible:ee:create-definition] created docs/index.md from README.md at ${docsMdPath}`,
+          `[ansible:create:ee-definition] created docs/index.md from README.md at ${docsMdPath}`,
         );
 
+        // perform the following only if the user has chosen to publish to a SCM repository
+        if (values.publishToSCM) {
+          const templatePath = path.join(eeDir, 'template.yaml');
+          const eeTemplateContent = generateEETemplate(mergedValues);
+          await fs.writeFile(templatePath, eeTemplateContent);
+          logger.info(
+            `[ansible:create:ee-definition created EE template.yaml at ${templatePath}`,
+          );
+          // generate catalog descriptor file path for the Execution Environment
+          // this is only needed if the user has chosen to publish to a SCM repository
+          // and we are creating a catalog-info.yaml file using the built-in `catalog:write` action
+          const catalogInfoPath = path.join(eeDir, 'catalog-info.yaml');
+          ctx.output('catalogInfoPath', catalogInfoPath);
+        } else {
+          // dynamically register the execution environment entity in the catalog
+          const baseUrl = await discovery.getBaseUrl('catalog');
+          const { token } = await auth.getPluginRequestToken({
+            onBehalfOf: await auth.getOwnServiceCredentials(),
+            targetPluginId: 'catalog',
+          });
+
+          // create the EE catalog entity dict
+          const entity = generateEECatalogEntity(
+            eeFileName,
+            eeDescription,
+            tags,
+            owner,
+            eeDefinition,
+            readmeContent,
+          );
+          // register the EE catalog entity with the catalog
+          const response = await fetch(`${baseUrl}/aap/register_ee`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ entity }),
+          });
+
+          if (response.ok) {
+            logger.info(
+              `[ansible:create:ee-definition] successfully registered EE catalog entity ${eeFileName} in the catalog`,
+            );
+            ctx.output('generatedEntityRef', stringifyEntityRef(entity));
+          } else if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to register EE definition: ${errorText}`);
+          }
+        }
         logger.info(
-          '[ansible:ee:create-definition] successfully created all Execution Environment files',
+          '[ansible:create:ee-definition] successfully created all Execution Environment files',
         );
       } catch (error: any) {
-        logger.error(
-          `[ansible:ee:create-definition] error creating EE definition files: ${error.message}`,
-        );
         throw new Error(
-          `[ansible:ee:create-definition] Failed to create EE definition files: ${error.message}`,
+          `[ansible:create:ee-definition] Failed to create EE definition files: ${error.message}`,
         );
       }
     },
@@ -604,6 +675,512 @@ podman push quay.io/your-username/${values.eeFileName}:latest
 4. Create a new Execution Environment in Ansible Automation Platform using the tagged image and add it to a job template.
  See the [Add a execution environment to a job template](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_automation_execution/assembly-controller-execution-environments) documentation for more details.
 `;
+}
+
+function generateEETemplate(values: EEDefinitionInput): string {
+  const collectionsJson = JSON.stringify(values.collections);
+  const requirementsJson = JSON.stringify(values.pythonRequirements);
+  const packagesJson = JSON.stringify(values.systemPackages);
+  const buildStepsJson = JSON.stringify(values.additionalBuildSteps);
+  const tagsJson = JSON.stringify(values.tags);
+  const mcpServersJson = JSON.stringify(values.mcpServers);
+
+  return `apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ${values.eeFileName}
+  title: ${values.eeFileName}
+  description: ${values.eeDescription || 'Saved Ansible Execution Environment Definition template'}
+  annotations:
+    ansible.io/template-type: execution-environment
+    ansible.io/saved-template: 'true'
+  tags: ${tagsJson}
+spec:
+  type: execution-environment
+
+  parameters:
+    # Step 1: Base Image Selection
+    - title: Base Image
+      description: Configure the base image for your execution environment
+      properties:
+        baseImage:
+          title: Base execution environment image
+          type: string
+          default: '${values.baseImage || values.customBaseImage}'
+          enum:
+            - 'registry.access.redhat.com/ubi9/python-311:latest'
+            - 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+          enumNames:
+            - 'Red Hat Universal Base Image 9 w/ Python 3.11 (Recommended)'
+            - 'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+          ui:widget: radio
+      dependencies:
+        baseImage:
+          oneOf:
+            # Case 1: When "Custom Image" is selected
+            - properties:
+                baseImage:
+                  const: 'custom'
+                customBaseImage:
+                  title: Custom Base Image
+                  type: string
+                  description: Enter a custom execution environment base image
+                  ui:
+                    field: EntityNamePicker
+                    options:
+                    allowArbitraryValues: true
+                    help: 'Format: [registry[:port]/][namespace/]name[:tag]'
+                    placeholder: 'e.g., quay.io/org/custom-ee:latest'
+              required:
+                - customBaseImage
+
+            # Case 2: When any predefined base image is selected
+            - properties:
+                baseImage:
+                  not:
+                    const: 'custom'
+
+    # Step 2: Ansible Collections
+    - title: Collections
+      description: Add collections to be included in your execution environment definition file (optional).
+      properties:
+        popularCollections:
+          title: Add Popular Collections
+          type: array
+          items:
+            type: string
+            enum:
+              - 'ansible.posix'
+              - 'community.general'
+              - 'community.crypto'
+              - 'ansible.windows'
+              - 'community.kubernetes'
+              - 'community.docker'
+              - 'cisco.ios'
+              - 'arista.eos'
+              - 'amazon.aws'
+              - 'azure.azcollection'
+              - 'google.cloud'
+          uniqueItems: true
+          ui:widget: checkboxes
+          ui:options:
+            layout: horizontal
+        collections:
+          title: Ansible Collections
+          type: array
+          default: ${collectionsJson}
+          description: Add collections manually
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                title: Collection Name
+                description: Collection name in namespace.collection format
+                pattern: '^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$'
+                ui:placeholder: 'e.g., community.general'
+              version:
+                type: string
+                title: Version (Optional)
+                description: Specific version of the collection
+                ui:placeholder: 'e.g., 7.2.1'
+          ui:options:
+            addable: true
+            orderable: true
+            removable: true
+        collectionsFile:
+          title: Upload a requirements.yml file
+          description: Optionally upload a requirements file with collection details
+          type: string
+          format: data-url
+        specifyRequirements:
+          title: Specify additional Python requirements and System packages
+          type: boolean
+          default: false
+          ui:help: "Check this box to define additional Python or system dependencies to include in your EE."
+      dependencies:
+        specifyRequirements:
+          oneOf:
+            - properties:
+                specifyRequirements:
+                  const: true
+                pythonRequirements:
+                  title: Python Requirements
+                  type: array
+                  default: ${requirementsJson}
+                  description: Add Python requirements to be included in the execution environment definition file (optional).
+                  items:
+                    type: string
+                    title: Python package
+                    description: Python package (with optional version specification)
+                    ui:placeholder: 'e.g., requests>=2.28.0'
+                  ui:options:
+                    addable: true
+                    orderable: true
+                    removable: true
+                pythonRequirementsFile:
+                  type: string
+                  format: data-url
+                  title: Pick a file with Python requirements
+                  description: Upload a requirements.txt file with python package details
+                systemPackages:
+                  title: System Packages
+                  type: array
+                  default: ${packagesJson}
+                  description: Add system packages/binaries to be included in the execution environment definition file (optional).
+                  items:
+                    type: string
+                    title: System package
+                    description: System package
+                    ui:placeholder: 'e.g., libxml2-dev [platform:dpkg], libssh-devel [platform:rpm]'
+                  ui:options:
+                    addable: true
+                    orderable: true
+                    removable: true
+                systemPackagesFile:
+                  type: string
+                  format: data-url
+                  title: Pick a file with system packages
+                  description: Upload a bindep.txt file with system package details
+            - properties:
+                specifyRequirements:
+                  const: false
+
+    # Step 3: MCP servers
+    - title: MCP servers
+      description: Add MCP servers to be installed in the execution environment definition file (optional).
+      properties:
+        mcpServers:
+          title: MCP Servers
+          type: array
+          default: ${mcpServersJson}
+          items:
+            type: string
+            title: MCP Server
+            enum:
+              - Github
+              - AWS
+              - Azure
+            ui:widget: select
+            ui:help: "Update placeholder values within the YAML file once the EE definition file is created."
+          ui:options:
+            addable: true
+            orderable: true
+            removable: true
+      dependencies:
+        mcpServers:
+          oneOf:
+            # Case: at least one item selected
+            - properties:
+                mcpServers:
+                  minItems: 1
+              ui:help: ""
+            # Case: no selection yet
+            - properties:
+                mcpServers:
+                  maxItems: 0
+              ui:help: ""
+
+    # Step 3: Additional Build Steps
+    - title: Additional Build Steps
+      description: Add custom build steps that will be executed at specific points during the build process. These map to ansible-builder's additional_build_steps configuration.
+      properties:
+        additionalBuildSteps:
+          title: Additional Build Steps
+          type: array
+          default: ${buildStepsJson}
+          items:
+            type: object
+            properties:
+              stepType:
+                title: Step Type
+                type: string
+                description: When this build step should execute
+                enum:
+                  - 'prepend_base'
+                  - 'append_base'
+                  - 'prepend_galaxy'
+                  - 'append_galaxy'
+                  - 'prepend_builder'
+                  - 'append_builder'
+                  - 'prepend_final'
+                  - 'append_final'
+                enumNames:
+                  - 'Prepend Base - Before base image dependencies'
+                  - 'Append Base - After base image dependencies'
+                  - 'Prepend Galaxy - Before Ansible collections'
+                  - 'Append Galaxy - After Ansible collections'
+                  - 'Prepend Builder - Before main build steps'
+                  - 'Append Builder - After main build steps'
+                  - 'Prepend Final - Before final image steps'
+                  - 'Append Final - After final image steps'
+                default: 'prepend_base'
+              commands:
+                title: Commands
+                type: array
+                description: List of commands to execute
+                items:
+                  type: string
+                  title: Command
+                  ui:placeholder: 'e.g., RUN dnf update'
+                ui:options:
+                  addable: true
+                  orderable: true
+                  removable: true
+            required: ['stepType', 'commands']
+          ui:options:
+            addable: true
+            orderable: true
+            removable: true
+
+    # Step 9: Repository Configuration
+    - title: Generate (and Publish)
+      description: Generate and publish the EE definition file and template.
+      properties:
+        eeFileName:
+          title: EE File Name
+          type: string
+          description: Name of the Execution Environment file.
+          ui:help: "Specify the filename for the EE definition file."
+        templateDescription:
+          title: Template Description
+          type: string
+          description: Description for the generated template.
+          ui:help: "Helps others understand when to use this template."
+        tags:
+          title: Tags for the generated template
+          description: Enter one or more tags.
+          type: array
+          default: ${tagsJson}
+          items:
+            type: string
+          ui:
+            options:
+              addable: true
+              orderable: true
+              removable: true
+            help: "Add one or more tags for the generated template."
+        publishToSCM:
+          title: Publish to a SCM repository
+          description: Publish the EE definition file and template to a SCM repository.
+          type: boolean
+          default: true
+          ui:help: "If unchecked, the EE definition file and template will not be pushed to a SCM repository. Regardless of your selection, you will get a link to download the files locally."
+      required:
+        - eeFileName
+        - templateDescription
+      dependencies:
+        publishToSCM:
+          oneOf:
+            - properties:
+                publishToSCM:
+                  const: true
+                sourceControlProvider:
+                  title: Select source control provider
+                  description: Choose your source control provider
+                  type: string
+                  enum:
+                    - Github
+                    - Gitlab
+                  ui:
+                    component: select
+                    help: Select the source control provider to publish the EE definition files to.
+                repositoryOwner:
+                  title: SCM repository organization or username
+                  type: string
+                  description: The organization or username that owns the SCM repository
+                repositoryName:
+                  title: Repository Name
+                  type: string
+                  description: Specify the name of the repository where the EE definition files will be published.
+                createNewRepository:
+                  title: Create new repository
+                  type: boolean
+                  description: Create a new repository, if the specified one does not exist.
+                  default: false
+                  ui:help: "If unchecked, a new repository will not be created if the specified one does not exist. The generated files will not be published to a repository."
+              required:
+                - sourceControlProvider
+                - repositoryOwner
+                - repositoryName
+                - createNewRepository
+            - properties:
+                publishToSCM:
+                  const: false
+
+  steps:
+    # Step 1: Create EE definition files
+    - id: create-ee-definition
+      name: Create Execution Environment Definition
+      action: ansible:create:ee-definition
+      input:
+        values:
+          eeFileName: \${{ parameters.eeFileName }}
+          baseImage: \${{ parameters.baseImage === 'custom' and parameters.customBaseImage or parameters.baseImage }}
+          popularCollections: \${{ parameters.popularCollections or [] }}
+          collections: \${{ parameters.collections or [] }}
+          collectionsFile: \${{ parameters.collectionsFile or [] }}
+          pythonRequirements: \${{ parameters.pythonRequirements or [] }}
+          pythonRequirementsFile: \${{ parameters.pythonRequirementsFile or [] }}
+          systemPackages: \${{ parameters.systemPackages or [] }}
+          systemPackagesFile: \${{ parameters.systemPackagesFile or [] }}
+          mcpServers: \${{ parameters.mcpServers or [] }}
+          additionalBuildSteps: \${{ parameters.additionalBuildSteps or [] }}
+
+    # Step 2: Generate EE definition template
+    - id: create-template
+      name: Generating Template for the EE Definition
+      action: ansible:ee:create-template
+      input:
+        values:
+          contextDirName:  \${{ steps['create-ee-definition'].output.contextDirName }}
+          eeFileName: \${{ parameters.eeFileName }}
+          baseImage: \${{ parameters.baseImage or '' }}
+          customBaseImage: \${{ parameters.customBaseImage or '' }}
+          collections: \${{ steps['create-ee-definition'].output.collections }}
+          pythonRequirements: \${{ steps['create-ee-definition'].output.pythonRequirements }}
+          systemPackages: \${{ steps['create-ee-definition'].output.systemPackages }}
+          mcpServers: \${{ parameters.mcpServers or [] }}
+          additionalBuildSteps: \${{ steps['create-ee-definition'].output.additionalBuildSteps }}
+          tags: \${{ parameters.tags or [] }}
+
+    # Step 3: Validate the SCM repository (optional)
+    - id: prepare-publish
+      action: ansible:prepare:publish
+      name: Prepare for publishing
+      if: \${{ parameters.publishToSCM }}
+      input:
+        sourceControlProvider: \${{ parameters.sourceControlProvider }}
+        repositoryOwner: \${{ parameters.repositoryOwner }}
+        repositoryName: \${{ parameters.repositoryName }}
+        createNewRepository: \${{ parameters.createNewRepository }}
+        eeFileName: \${{ parameters.eeFileName }}
+        contextDirName: \${{ steps['create-ee-definition'].output.contextDirName }}
+
+    # Step 4: Generate catalog-info file
+    - id: create-catalog-info
+      action: ansible:ee:create-catalog-info
+      name: Creating Catalog Info Component for the EE Definition
+      input:
+        componentName: \${{ parameters.eeFileName }}
+        description: \${{ parameters.templateDescription }}
+        tags: \${{ parameters.tags or [] }}
+        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl or ''}}
+        contextDirName: \${{ steps['create-ee-definition'].output.contextDirName }}
+        publishToSCM: \${{ parameters.publishToSCM }}
+        eeDefinitionContent: \${{ steps['create-ee-definition'].output.eeDefinitionContent }}
+        readmeContent: \${{ steps['create-ee-definition'].output.readmeContent }}
+
+    # Step 5: Create and publish to a new GitHub Repository
+    - id: publish-github
+      name: Create and publish to a new GitHub Repository
+      action: publish:github
+      if: \${{ (parameters.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Github') }}
+      input:
+        description: \${{ parameters.templateDescription }}
+        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+        defaultBranch: 'main'
+        repoVisibility: 'public'
+
+    # Step 5: Create and publish to a new Gitlab Repository
+    - id: publish-gitlab
+      name: Create and publish to a new GitLab Repository
+      action: publish:gitlab
+      if: \${{ (parameters.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and parameters.sourceControlProvider == 'Gitlab' }}
+      input:
+        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+        defaultBranch: 'main'
+        repoVisibility: 'public'
+
+    # Step 5: Publish generated files as a Github Pull Request
+    - id: publish-github-pull-request
+      name: Publish generated files as a Github Pull Request
+      action: publish:github:pull-request
+      if: \${{ parameters.publishToSCM and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Github') }}
+      input:
+        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+        branchName: \${{ steps['prepare-publish'].output.generatedBranchName }}
+        title: \${{ steps['prepare-publish'].output.generatedTitle }}
+        description: \${{ steps['prepare-publish'].output.generatedDescription }}
+
+    # Step 5: Publish generated files as a Gitlab Merge Request
+    - id: publish-gitlab-merge-request
+      name: Publish generated files as a Gitlab Merge Request
+      action: publish:gitlab:merge-request
+      if: \${{ parameters.publishToSCM and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
+      input:
+        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+        branchName: \${{ steps['prepare-publish'].output.generatedBranchName }}
+        title: \${{ steps['prepare-publish'].output.generatedTitle }}
+        description: \${{ steps['prepare-publish'].output.generatedDescription }}
+
+    - id: register-catalog-component
+      name: Register published EE as a Catalog Component
+      action: catalog:register
+      if: \${{ parameters.publishToSCM }}
+      input:
+        catalogInfoUrl: \${{ steps['prepare-publish'].output.generatedCatalogInfoUrl }}
+        optional: true
+
+  output:
+    links:
+      - title: \${{ parameters.sourceControlProvider }} Repository
+        url: \${{ steps['prepare-publish'].output.generatedFullRepoUrl }}
+        if: \${{ (parameters.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) }}
+        icon: \${{ parameters.sourceControlProvider | lower }}
+
+      - title: GitHub Pull Request
+        url: \${{ steps['publish-github-pull-request'].output.remoteUrl }}
+        if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Github') }}
+        icon: github
+
+      - title: GitLab Merge Request
+        url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
+        if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
+
+      - title: View details in catalog
+        icon: catalog
+        entityRef: \${{ steps['register-catalog-component'].output.entityRef or steps['create-catalog-info'].output.generatedEntityRef }}
+
+    text:
+      - title: Next Steps
+        content: |
+          \`\`\`md
+          \${{ steps['create-ee-definition'].output.readmeContent }}
+          \`\`\`
+    `;
+}
+
+function generateEECatalogEntity(
+  componentName: string,
+  description: string,
+  tags: string[],
+  owner: string,
+  eeDefinitionContent: string,
+  readmeContent: string,
+) {
+  return {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: {
+      name: componentName,
+      title: componentName,
+      description: description,
+      tags: tags,
+      annotations: {
+        'backstage.io/managed-by-location': `url:127.0.0.1`,
+        'backstage.io/managed-by-origin-location': `url:127.0.0.1`,
+        'ansible.io/download-experience': 'true',
+      },
+    },
+    spec: {
+      type: 'execution-environment',
+      lifecycle: 'production',
+      owner: owner,
+      definition: eeDefinitionContent,
+      readme: readmeContent,
+    },
+  };
 }
 
 function mergeCollections(

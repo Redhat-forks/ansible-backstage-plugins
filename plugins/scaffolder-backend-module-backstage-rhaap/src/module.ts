@@ -37,7 +37,6 @@ import {
   launchJobTemplate,
   createEEDefinitionAction,
   prepareForPublishAction,
-  createEETemplateAction,
   createEECatalogInfoAction,
 } from './actions';
 
@@ -86,14 +85,12 @@ export const scaffolderModuleAnsible = createBackendModule({
           launchJobTemplate(ansibleService),
           cleanUp(ansibleService),
           createShowCases(ansibleService, ansibleConfig),
-          createEEDefinitionAction(),
-          createEETemplateAction(),
-          prepareForPublishAction({
-            ansibleConfig: ansibleConfig,
-          }),
-          createEECatalogInfoAction({
+          createEEDefinitionAction({
             auth,
             discovery,
+          }),
+          prepareForPublishAction({
+            ansibleConfig: ansibleConfig,
           }),
         );
         scaffolderTemplating.addTemplateFilters({

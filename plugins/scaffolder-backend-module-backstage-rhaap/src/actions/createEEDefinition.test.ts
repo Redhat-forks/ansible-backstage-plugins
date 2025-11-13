@@ -41,6 +41,9 @@ jest.mock('./utils/utils', () => ({
   parseUploadedFileContent: jest.fn(),
 }));
 
+// Mock global fetch
+global.fetch = jest.fn();
+
 import dedent from 'dedent';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
@@ -67,6 +70,7 @@ const mockParseUploadedFileContent =
   parseUploadedFileContent as jest.MockedFunction<
     typeof parseUploadedFileContent
   >;
+const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 
 // Import internal functions for testing (we'll need to export them or test via the action)
 // Since we can't easily test private functions, we'll test through the action handler
@@ -74,6 +78,8 @@ const mockParseUploadedFileContent =
 
 describe('createEEDefinition', () => {
   const logger = mockServices.logger.mock();
+  const auth = mockServices.auth.mock();
+  const discovery = mockServices.discovery.mock();
   const mockWorkspacePath = '/tmp/test-workspace';
 
   beforeEach(() => {
@@ -89,11 +95,23 @@ describe('createEEDefinition', () => {
     mockEEDefinitionSchemaParse.mockImplementation(
       realSchemas.EEDefinitionSchema.parse,
     );
+    discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: jest.fn().mockResolvedValue(''),
+    } as any);
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      token: 'service-token',
+    } as any);
+    auth.getPluginRequestToken.mockResolvedValue({
+      token: 'plugin-token',
+    } as any);
   });
 
   describe('generateEEDefinition functionality', () => {
     it('should generate EE definition with base image only', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -124,7 +142,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with collections', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -164,7 +182,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with only Python requirements', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -199,7 +217,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with system packages', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -239,7 +257,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with collection signatures', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -287,7 +305,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with additional build steps', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -333,7 +351,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with all inputs provided', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -417,7 +435,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should group multiple commands for same step type', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -461,7 +479,7 @@ describe('createEEDefinition', () => {
 
   describe('generateReadme functionality', () => {
     it('should generate README with base image', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -488,7 +506,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with collections section', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -518,7 +536,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with Python requirements section', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -543,7 +561,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with system packages section', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -569,7 +587,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with MCP servers section', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -595,7 +613,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should include build instructions in README', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -621,7 +639,7 @@ describe('createEEDefinition', () => {
 
   describe('mergeCollections functionality', () => {
     it('should merge collections from different sources', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -638,11 +656,14 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      expect(outputCall).toBeDefined();
-      const collections = JSON.parse(outputCall![1]);
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       expect(collections).toHaveLength(3);
       expect(collections.map((c: any) => c.name)).toContain('collection1');
       expect(collections.map((c: any) => c.name)).toContain('collection2');
@@ -650,7 +671,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should remove duplicate collections by name', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -667,16 +688,19 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const collections = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       expect(collections).toHaveLength(1);
       expect(collections[0].name).toBe('collection1');
     });
 
     it('should prefer collection without version over versioned one', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -693,10 +717,13 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const collections = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       // When a versioned collection exists, it should be kept
       // But if a non-versioned one comes later, it should win
       // The non-versioned one from popularCollections should win
@@ -712,7 +739,7 @@ describe('createEEDefinition', () => {
         return false;
       });
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -731,10 +758,13 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const collections = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       expect(collections).toHaveLength(1);
       expect(collections[0].version).toBe('2.0.0');
     });
@@ -755,7 +785,7 @@ describe('createEEDefinition', () => {
         realSchemas.CollectionRequirementsSchema.parse,
       );
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -772,10 +802,13 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const collections = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       expect(collections.length).toBeGreaterThanOrEqual(1);
       expect(collections).toEqual(
         expect.arrayContaining([
@@ -788,14 +821,21 @@ describe('createEEDefinition', () => {
 
   describe('mergeRequirements functionality', () => {
     it('should merge Python requirements from different sources', async () => {
-      const action = createEEDefinitionAction();
+      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
+        if (dataUrl.includes('text/plain')) {
+          return 'paramiko==5.0.0';
+        }
+        return '';
+      });
+
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
             pythonRequirements: ['requests==2.28.0'],
-            pythonRequirementsFile: 'data:text/plain;base64,requests==2.29.0',
+            pythonRequirementsFile: 'data:text/plain;base64,paramiko==5.0.0',
           },
         },
         logger,
@@ -803,25 +843,22 @@ describe('createEEDefinition', () => {
         output: jest.fn(),
       } as any;
 
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/plain')) {
-          return 'requests==2.29.0';
-        }
-        return '';
-      });
-
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'pythonRequirements',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const requirements = JSON.parse(outputCall![1]);
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const requirements = parsed.dependencies?.python || [];
       expect(requirements).toContain('requests==2.28.0');
-      expect(requirements).toContain('requests==2.29.0');
+      expect(requirements).toContain('paramiko==5.0.0');
     });
 
     it('should remove duplicate requirements', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -837,10 +874,13 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'pythonRequirements',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const requirements = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const requirements = parsed.dependencies?.python || [];
       expect(requirements).toHaveLength(1);
       expect(requirements[0]).toBe('requests==2.28.0');
     });
@@ -848,7 +888,14 @@ describe('createEEDefinition', () => {
 
   describe('mergePackages functionality', () => {
     it('should merge system packages from different sources', async () => {
-      const action = createEEDefinitionAction();
+      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
+        if (dataUrl.includes('text/plain')) {
+          return 'curl';
+        }
+        return '';
+      });
+
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -863,25 +910,22 @@ describe('createEEDefinition', () => {
         output: jest.fn(),
       } as any;
 
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/plain')) {
-          return 'curl';
-        }
-        return '';
-      });
-
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'systemPackages',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const packages = JSON.parse(outputCall![1]);
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const packages = parsed.dependencies?.system || [];
       expect(packages).toContain('git');
       expect(packages).toContain('curl');
     });
 
     it('should remove duplicate packages', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -897,10 +941,13 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'systemPackages',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const packages = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const packages = parsed.dependencies?.system || [];
       expect(packages).toHaveLength(1);
       expect(packages[0]).toBe('git');
     });
@@ -915,7 +962,7 @@ describe('createEEDefinition', () => {
         return '';
       });
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -931,10 +978,14 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'pythonRequirements',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const requirements = JSON.parse(outputCall![1]);
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const requirements = parsed.dependencies?.python || [];
       expect(requirements).toContain('requests==2.28.0');
       expect(requirements).toContain('jinja2>=3.0.0');
       // Empty lines and comment lines should be filtered out
@@ -945,7 +996,7 @@ describe('createEEDefinition', () => {
     it('should handle empty text requirements file', async () => {
       mockParseUploadedFileContent.mockReturnValue('');
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -961,10 +1012,13 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'pythonRequirements',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const requirements = JSON.parse(outputCall![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const requirements = parsed.dependencies?.python || [];
       expect(requirements).toEqual([]);
     });
   });
@@ -986,7 +1040,7 @@ describe('createEEDefinition', () => {
         realSchemas.CollectionRequirementsSchema.parse,
       );
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1009,7 +1063,7 @@ describe('createEEDefinition', () => {
     it('should handle empty collections file', async () => {
       mockParseUploadedFileContent.mockReturnValue('');
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1035,7 +1089,7 @@ describe('createEEDefinition', () => {
         throw new Error('YAML parse error');
       });
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1067,7 +1121,7 @@ describe('createEEDefinition', () => {
         throw zodError;
       });
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1089,13 +1143,13 @@ describe('createEEDefinition', () => {
 
   describe('generateMCPBuilderSteps functionality', () => {
     it('should add MCP collections and build steps when MCP servers are specified', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['Github', 'AWS'],
+            mcpServers: ['github', 'aws'],
           },
         },
         logger,
@@ -1105,10 +1159,16 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const collectionsOutput = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const collections = JSON.parse(collectionsOutput![1]);
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+
+      // Verify MCP collections are added
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       expect(
         collections.some((c: any) => c.name === 'ansible.mcp_builder'),
       ).toBeTruthy();
@@ -1116,36 +1176,30 @@ describe('createEEDefinition', () => {
         collections.some((c: any) => c.name === 'ansible.mcp'),
       ).toBeTruthy();
 
-      const buildStepsOutput = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'additionalBuildSteps',
-      );
-      const buildSteps = JSON.parse(buildStepsOutput![1]);
-      const appendBuilderStep = buildSteps.find(
-        (s: any) => s.stepType === 'append_builder',
-      );
-      expect(appendBuilderStep).toBeDefined();
+      // Verify MCP build steps are added
+      const buildSteps = parsed.additional_build_steps || {};
+      const appendBuilderCommands = buildSteps.append_builder || [];
+      expect(appendBuilderCommands.length).toBeGreaterThan(0);
       expect(
-        appendBuilderStep.commands.some((cmd: string) =>
+        appendBuilderCommands.some((cmd: string) =>
           cmd.includes('ansible-playbook ansible.mcp_builder.install_mcp'),
         ),
       ).toBeTruthy();
       expect(
-        appendBuilderStep.commands.some((cmd: string) =>
+        appendBuilderCommands.some((cmd: string) =>
           cmd.includes('github_mcp,aws_mcp'),
         ),
       ).toBeTruthy();
 
-      const appendFinalStep = buildSteps.find(
-        (s: any) => s.stepType === 'append_final',
-      );
-      expect(appendFinalStep).toBeDefined();
-      expect(appendFinalStep.commands).toContain(
+      const appendFinalCommands = buildSteps.append_final || [];
+      expect(appendFinalCommands.length).toBeGreaterThan(0);
+      expect(appendFinalCommands).toContain(
         'COPY --from=builder /opt/mcp /opt/mcp',
       );
     });
 
     it('should append to existing append_builder step', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1167,24 +1221,25 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const buildStepsOutput = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'additionalBuildSteps',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const buildSteps = JSON.parse(buildStepsOutput![1]);
-      const appendBuilderStep = buildSteps.find(
-        (s: any) => s.stepType === 'append_builder',
-      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+      const appendBuilderCommands = buildSteps.append_builder || [];
 
       const expectedCommands = [
         'RUN echo "existing command"',
         'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp',
       ];
 
-      expect(appendBuilderStep.commands).toEqual(expectedCommands);
+      expect(appendBuilderCommands).toEqual(expectedCommands);
     });
 
     it('should not add MCP steps when no MCP servers specified', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1200,11 +1255,19 @@ describe('createEEDefinition', () => {
 
       await action.handler(ctx);
 
-      const collectionsOutput = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'collections',
+      // Check the generated EE definition file content
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
       );
-      const collections = JSON.parse(collectionsOutput![1]);
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
       expect(collections).toEqual([]);
+
+      // Verify no MCP build steps are added
+      const buildSteps = parsed.additional_build_steps || {};
+      expect(buildSteps.append_builder).toBeUndefined();
+      expect(buildSteps.append_final).toBeUndefined();
     });
   });
 
@@ -1217,7 +1280,7 @@ describe('createEEDefinition', () => {
       mockYamlLoad.mockReturnValue(validEEDefinition);
       mockEEDefinitionSchemaParse.mockReturnValue(validEEDefinition);
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1256,7 +1319,7 @@ describe('createEEDefinition', () => {
         throw zodError;
       });
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1277,7 +1340,7 @@ describe('createEEDefinition', () => {
 
   describe('contextDirName generation', () => {
     it('should generate sanitized directory name from eeFileName', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1302,7 +1365,7 @@ describe('createEEDefinition', () => {
     });
 
     it('should handle special characters in eeFileName', async () => {
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1329,7 +1392,7 @@ describe('createEEDefinition', () => {
     it('should handle file write errors', async () => {
       mockWriteFile.mockRejectedValueOnce(new Error('Write failed'));
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1348,7 +1411,7 @@ describe('createEEDefinition', () => {
     it('should handle directory creation errors', async () => {
       mockMkdir.mockRejectedValueOnce(new Error('Mkdir failed'));
 
-      const action = createEEDefinitionAction();
+      const action = createEEDefinitionAction({ auth, discovery });
       const ctx = {
         input: {
           values: {
@@ -1362,6 +1425,543 @@ describe('createEEDefinition', () => {
       } as any;
 
       await expect(action.handler(ctx)).rejects.toThrow('Mkdir failed');
+    });
+  });
+
+  describe('generateEETemplate functionality', () => {
+    it('should generate EE template with minimal inputs', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE Description',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Verify basic template structure
+      expect(content).toContain('apiVersion: scaffolder.backstage.io/v1beta3');
+      expect(content).toContain('kind: Template');
+      expect(content).toContain('name: test-ee');
+      expect(content).toContain('title: test-ee');
+      expect(content).toContain('description: Test EE Description');
+      expect(content).toContain(
+        'ansible.io/template-type: execution-environment',
+      );
+      expect(content).toContain("ansible.io/saved-template: 'true'");
+      expect(content).toContain('type: execution-environment');
+    });
+
+    it('should generate EE template with default description when not provided', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+      expect(content).toContain(
+        'description: Saved Ansible Execution Environment Definition template',
+      );
+    });
+
+    it('should generate EE template with collections', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            collections: [
+              { name: 'community.general', version: '1.0.0' },
+              { name: 'ansible.netcommon' },
+            ],
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify collections are included in the template
+      expect(content).toContain(
+        'default: [{"name":"community.general","version":"1.0.0"},{"name":"ansible.netcommon"}]',
+      );
+    });
+
+    it('should generate EE template with Python requirements', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            pythonRequirements: ['requests==2.28.0', 'jinja2>=3.0.0'],
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify Python requirements are included
+      expect(content).toContain(
+        'default: ["requests==2.28.0","jinja2>=3.0.0"]',
+      );
+    });
+
+    it('should generate EE template with system packages', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            systemPackages: ['git', 'curl'],
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify system packages are included
+      expect(content).toContain('default: ["git","curl"]');
+    });
+
+    it('should generate EE template with MCP servers', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['github', 'aws'],
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify MCP servers are included
+      expect(content).toContain('default: ["github","aws"]');
+    });
+
+    it('should generate EE template with additional build steps', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            additionalBuildSteps: [
+              {
+                stepType: 'append_builder',
+                commands: ['RUN whoami', 'RUN pwd'],
+              },
+            ],
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify additional build steps are included
+      expect(content).toContain(
+        'default: [{"stepType":"append_builder","commands":["RUN whoami","RUN pwd"]}]',
+      );
+    });
+
+    it('should generate EE template with tags', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: ['ansible', 'automation', 'ee'],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify tags are included
+      expect(content).toContain('tags: ["ansible","automation","ee"]');
+    });
+
+    it('should generate EE template with custom base image', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            customBaseImage: 'quay.io/custom/ee-image:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify custom base image is included in enum
+      expect(content).toContain("- 'quay.io/custom/ee-image:latest'");
+      // Verify custom base image is in enumNames
+      const lines = content.split('\n');
+      const enumIndex = lines.findIndex(line => line.includes('enum:'));
+      const enumNamesIndex = lines.findIndex(line =>
+        line.includes('enumNames:'),
+      );
+      expect(enumIndex).toBeGreaterThan(-1);
+      expect(enumNamesIndex).toBeGreaterThan(-1);
+    });
+
+    it('should generate EE template with all inputs provided', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Complete Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            customBaseImage: 'quay.io/custom/ee:latest',
+            collections: [{ name: 'community.general', version: '1.0.0' }],
+            pythonRequirements: ['requests==2.28.0'],
+            systemPackages: ['git'],
+            mcpServers: ['github'],
+            additionalBuildSteps: [
+              {
+                stepType: 'append_builder',
+                commands: ['RUN echo "test"'],
+              },
+            ],
+            tags: ['ansible', 'test'],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify all sections are present
+      expect(content).toContain('name: test-ee');
+      expect(content).toContain('description: Complete Test EE');
+      expect(content).toContain('tags: ["ansible","test"]');
+      expect(content).toContain(
+        'default: [{"name":"community.general","version":"1.0.0"},{"name":"ansible.mcp_builder"},{"name":"ansible.mcp"}]',
+      );
+      expect(content).toContain('default: ["requests==2.28.0"]');
+      expect(content).toContain('default: ["git"]');
+      expect(content).toContain('default: ["github"]');
+      expect(content).toContain(
+        'default: [{"stepType":"append_builder","commands":["RUN echo \\"test\\"","RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp"]},{"stepType":"append_final","commands":["COPY --from=builder /opt/mcp /opt/mcp"]}]',
+      );
+      expect(content).toContain("- 'quay.io/custom/ee:latest'");
+    });
+
+    it('should handle empty arrays in template generation', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            collections: [],
+            pythonRequirements: [],
+            systemPackages: [],
+            mcpServers: [],
+            additionalBuildSteps: [],
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify empty arrays are serialized correctly
+      expect(content).toContain('default: []');
+      expect(content).toContain('tags: []');
+    });
+
+    it('should include all template steps in generated template', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify key steps are present
+      expect(content).toContain('id: create-ee-definition');
+      expect(content).toContain('id: create-template');
+      expect(content).toContain('id: prepare-publish');
+      expect(content).toContain('id: create-catalog-info');
+    });
+
+    it('should include base image enum options in template', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify default base image enum options are present
+      expect(content).toContain(
+        "- 'registry.access.redhat.com/ubi9/python-311:latest'",
+      );
+      expect(content).toContain(
+        "- 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'",
+      );
+    });
+
+    it('should include popular collections enum in template', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify popular collections enum includes expected collections
+      expect(content).toContain("- 'ansible.posix'");
+      expect(content).toContain("- 'community.general'");
+      expect(content).toContain("- 'community.crypto'");
+      expect(content).toContain("- 'amazon.aws'");
+      expect(content).toContain("- 'azure.azcollection'");
+    });
+
+    it('should include MCP servers enum in template', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify MCP servers enum includes expected options
+      expect(content).toContain('- Github');
+      expect(content).toContain('- AWS');
+      expect(content).toContain('- Azure');
+    });
+
+    it('should include all build step types in enum', async () => {
+      const action = createEEDefinitionAction({ auth, discovery });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription: 'Test EE',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+      const content = writeCall![1] as string;
+
+      // Verify all build step types are in enum
+      expect(content).toContain("- 'prepend_base'");
+      expect(content).toContain("- 'append_base'");
+      expect(content).toContain("- 'prepend_galaxy'");
+      expect(content).toContain("- 'append_galaxy'");
+      expect(content).toContain("- 'prepend_builder'");
+      expect(content).toContain("- 'append_builder'");
+      expect(content).toContain("- 'prepend_final'");
+      expect(content).toContain("- 'append_final'");
     });
   });
 });
