@@ -405,25 +405,13 @@ export const RunTask = () => {
           return;
         }
 
-        const { items } = await catalogApi.getEntities({
-          filter: {
-            kind: 'Component',
-            'spec.type': 'execution-environment',
-          },
-        });
+        const entityRef = `Component:default/${eeFileName.trim()}`;
+        const foundEntity = await catalogApi.getEntityByRef(entityRef);
 
-        const foundEntity = items.find(entity => {
-          const entityName = entity.metadata.name.toLowerCase();
-          const fileName = eeFileName.toLowerCase();
-          return (
-            entityName === fileName ||
-            entity.metadata.title?.toLowerCase() === fileName ||
-            (typeof entity.spec?.name === 'string' &&
-              entity.spec.name.toLowerCase() === fileName)
-          );
-        });
-
-        if (foundEntity) {
+        if (
+          foundEntity?.kind === 'Component' &&
+          foundEntity?.spec?.type === 'execution-environment'
+        ) {
           setMatchingEntity(foundEntity);
         } else {
           // eslint-disable-next-line no-console
@@ -453,31 +441,24 @@ export const RunTask = () => {
         return null;
       }
 
-      const { items } = await catalogApi.getEntities({
-        filter: {
-          kind: 'Component',
-          'spec.type': 'execution-environment',
-        },
-      });
+      try {
+        const entityRef = `Component:default/${eeFileName.trim()}`;
+        const foundEntity = await catalogApi.getEntityByRef(entityRef);
 
-      const foundEntity = items.find(e => {
-        const entityName = e.metadata.name.toLowerCase();
-        const fileName = eeFileName.toLowerCase();
-        return (
-          entityName === fileName ||
-          e.metadata.title?.toLowerCase() === fileName ||
-          (typeof e.spec?.name === 'string' &&
-            e.spec.name.toLowerCase() === fileName)
-        );
-      });
-
-      if (foundEntity) {
-        entity = foundEntity;
-        setMatchingEntity(entity);
-        return entity;
+        if (
+          foundEntity?.kind === 'Component' &&
+          foundEntity?.spec?.type === 'execution-environment'
+        ) {
+          entity = foundEntity;
+          setMatchingEntity(entity);
+          return entity;
+        }
+        console.error('Entity not found in catalog or wrong type'); // eslint-disable-line no-console
+        return null;
+      } catch (err) {
+        console.error('Entity not found in catalog', err); // eslint-disable-line no-console
+        return null;
       }
-      console.error('Entity not found in catalog'); // eslint-disable-line no-console
-      return null;
     }
 
     return entity;

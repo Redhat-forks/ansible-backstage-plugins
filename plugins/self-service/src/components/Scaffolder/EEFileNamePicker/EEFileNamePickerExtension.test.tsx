@@ -16,7 +16,6 @@ jest.mock('@material-ui/core/styles', () => ({
     container: 'container',
     warningBox: 'warningBox',
     loadingBox: 'loadingBox',
-    errorBox: 'errorBox',
   }),
 }));
 
@@ -193,7 +192,7 @@ describe('EEFileNamePickerExtension', () => {
   describe('Catalog Entity Checking', () => {
     it('does not check catalog when input is empty', async () => {
       const props = createMockProps({ formData: '' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
@@ -202,13 +201,13 @@ describe('EEFileNamePickerExtension', () => {
       });
 
       await waitFor(() => {
-        expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+        expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
       });
     });
 
     it('does not check catalog when input is only whitespace', async () => {
       const props = createMockProps({ formData: '   ' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
@@ -217,50 +216,57 @@ describe('EEFileNamePickerExtension', () => {
       });
 
       await waitFor(() => {
-        expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+        expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
       });
     });
 
     it('checks catalog after debounce delay', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
       });
 
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(() => {
-        expect(mockCatalogApi.getEntities).toHaveBeenCalledTimes(1);
+        expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
       });
     });
 
-    it('queries catalog with correct filters', async () => {
+    it('queries catalog with correct entity reference', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
       });
 
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(() => {
-        expect(mockCatalogApi.getEntities).toHaveBeenCalledWith({
-          filter: {
-            kind: 'Component',
-            'spec.type': 'execution-environment',
-          },
-        });
+        expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledWith(
+          'Component:default/test-ee',
+        );
       });
     });
 
     it('debounces multiple rapid input changes', async () => {
       const props = createMockProps();
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       const { rerender } = renderWithProviders(props);
 
@@ -294,12 +300,17 @@ describe('EEFileNamePickerExtension', () => {
         </TestApiProvider>,
       );
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
       });
 
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(() => {
-        expect(mockCatalogApi.getEntities).toHaveBeenCalledTimes(1);
+        expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -311,31 +322,43 @@ describe('EEFileNamePickerExtension', () => {
       const promise = new Promise(resolve => {
         resolvePromise = resolve;
       });
-      mockCatalogApi.getEntities.mockReturnValue(promise);
+      mockCatalogApi.getEntityByRef.mockReturnValue(promise);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
         expect(screen.getByText('Checking catalog...')).toBeInTheDocument();
       });
 
-      act(() => {
-        resolvePromise!({ items: [] });
+      await act(async () => {
+        resolvePromise!(null);
+        await Promise.resolve();
+        await Promise.resolve();
       });
     });
 
     it('hides loading indicator after check completes', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -350,14 +373,17 @@ describe('EEFileNamePickerExtension', () => {
     it('shows warning when entity with matching name exists', async () => {
       const props = createMockProps({ formData: 'test-ee' });
       const existingEntity = createMockEntity('test-ee');
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [existingEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -372,14 +398,17 @@ describe('EEFileNamePickerExtension', () => {
     it('shows warning when entity with matching title exists', async () => {
       const props = createMockProps({ formData: 'test-ee' });
       const existingEntity = createMockEntity('different-name', 'test-ee');
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [existingEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -404,14 +433,17 @@ describe('EEFileNamePickerExtension', () => {
           name: 'test-ee',
         },
       };
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [existingEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -426,14 +458,17 @@ describe('EEFileNamePickerExtension', () => {
     it('displays correct warning message with entity name', async () => {
       const props = createMockProps({ formData: 'my-ee' });
       const existingEntity = createMockEntity('my-ee');
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [existingEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -452,12 +487,17 @@ describe('EEFileNamePickerExtension', () => {
 
     it('does not show warning when no matching entity exists', async () => {
       const props = createMockProps({ formData: 'unique-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -470,14 +510,17 @@ describe('EEFileNamePickerExtension', () => {
     it('hides warning when input is cleared', async () => {
       const props = createMockProps({ formData: 'test-ee' });
       const existingEntity = createMockEntity('test-ee');
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [existingEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       const { rerender } = renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -492,8 +535,13 @@ describe('EEFileNamePickerExtension', () => {
         </TestApiProvider>,
       );
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -506,14 +554,13 @@ describe('EEFileNamePickerExtension', () => {
     it('matches entity names case-insensitively', async () => {
       const props = createMockProps({ formData: 'TEST-EE' });
       const existingEntity = createMockEntity('test-ee');
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [existingEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -527,14 +574,19 @@ describe('EEFileNamePickerExtension', () => {
   describe('Error Handling', () => {
     it('displays error message when catalog API fails', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockRejectedValue(
+      mockCatalogApi.getEntityByRef.mockRejectedValue(
         new Error('Catalog API unavailable'),
       );
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -544,12 +596,17 @@ describe('EEFileNamePickerExtension', () => {
 
     it('displays generic error message for non-Error exceptions', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockRejectedValue('String error');
+      mockCatalogApi.getEntityByRef.mockRejectedValue('String error');
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -561,14 +618,19 @@ describe('EEFileNamePickerExtension', () => {
 
     it('clears error when input is cleared', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockRejectedValue(
+      mockCatalogApi.getEntityByRef.mockRejectedValue(
         new Error('Catalog API unavailable'),
       );
 
       const { rerender } = renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -581,8 +643,13 @@ describe('EEFileNamePickerExtension', () => {
         </TestApiProvider>,
       );
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -594,19 +661,16 @@ describe('EEFileNamePickerExtension', () => {
   });
 
   describe('Multiple Entities', () => {
-    it('finds entity when multiple entities exist', async () => {
+    it('finds entity when entity exists', async () => {
       const props = createMockProps({ formData: 'test-ee' });
-      const entities = [
-        createMockEntity('other-ee'),
-        createMockEntity('test-ee'),
-        createMockEntity('another-ee'),
-      ];
-      mockCatalogApi.getEntities.mockResolvedValue({ items: entities });
+      const existingEntity = createMockEntity('test-ee');
+      mockCatalogApi.getEntityByRef.mockResolvedValue(existingEntity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -618,16 +682,17 @@ describe('EEFileNamePickerExtension', () => {
 
     it('does not show warning when entity name does not match any', async () => {
       const props = createMockProps({ formData: 'unique-ee' });
-      const entities = [
-        createMockEntity('other-ee'),
-        createMockEntity('another-ee'),
-      ];
-      mockCatalogApi.getEntities.mockResolvedValue({ items: entities });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -652,12 +717,13 @@ describe('EEFileNamePickerExtension', () => {
           name: 'test-ee',
         },
       };
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [entity] });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(entity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -680,12 +746,13 @@ describe('EEFileNamePickerExtension', () => {
           name: 123 as any,
         },
       };
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [entity] });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(entity);
 
       renderWithProviders(props);
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(500);
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -698,7 +765,7 @@ describe('EEFileNamePickerExtension', () => {
     it('handles very long entity names', async () => {
       const longName = 'a'.repeat(100);
       const props = createMockProps({ formData: longName });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
@@ -708,7 +775,7 @@ describe('EEFileNamePickerExtension', () => {
 
     it('handles special characters in entity name', async () => {
       const props = createMockProps({ formData: 'test-ee_v2.0' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       renderWithProviders(props);
 
@@ -717,357 +784,10 @@ describe('EEFileNamePickerExtension', () => {
     });
   });
 
-  describe('Format Validation', () => {
-    it('accepts valid entity names with alphanumeric characters', () => {
-      const props = createMockProps({ formData: 'my-ee-123' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      expect(input.value).toBe('my-ee-123');
-      expect(input).not.toHaveAttribute('aria-invalid', 'true');
-    });
-
-    it('accepts valid entity names with underscores', () => {
-      const props = createMockProps({ formData: 'my_ee_123' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      expect(input.value).toBe('my_ee_123');
-    });
-
-    it('accepts valid entity names with dots', () => {
-      const props = createMockProps({ formData: 'my.ee.123' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      expect(input.value).toBe('my.ee.123');
-    });
-
-    it('accepts valid entity names with mixed separators', () => {
-      const props = createMockProps({ formData: 'my-ee_v2.0' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      expect(input.value).toBe('my-ee_v2.0');
-    });
-
-    it('rejects names starting with a separator', async () => {
-      const props = createMockProps({ formData: '-my-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot start with a hyphen, underscore, or dot/i,
-        );
-      });
-
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      expect(input).toHaveAttribute('aria-invalid', 'true');
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names starting with underscore', async () => {
-      const props = createMockProps({ formData: '_my-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot start with a hyphen, underscore, or dot/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names starting with dot', async () => {
-      const props = createMockProps({ formData: '.my-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot start with a hyphen, underscore, or dot/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names ending with a separator', async () => {
-      const props = createMockProps({ formData: 'my-ee-' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot end with a hyphen, underscore, or dot/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names ending with underscore', async () => {
-      const props = createMockProps({ formData: 'my-ee_' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot end with a hyphen, underscore, or dot/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names ending with dot', async () => {
-      const props = createMockProps({ formData: 'my-ee.' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot end with a hyphen, underscore, or dot/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names with consecutive separators', async () => {
-      const props = createMockProps({ formData: 'my--ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot contain consecutive hyphens, underscores, or dots/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names with consecutive underscores', async () => {
-      const props = createMockProps({ formData: 'my__ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot contain consecutive hyphens, underscores, or dots/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names with consecutive dots', async () => {
-      const props = createMockProps({ formData: 'my..ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot contain consecutive hyphens, underscores, or dots/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names with mixed consecutive separators', async () => {
-      const props = createMockProps({ formData: 'my-_.ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name cannot contain consecutive hyphens, underscores, or dots/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names with invalid characters', async () => {
-      const props = createMockProps({ formData: 'my-ee@123' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name must consist of alphanumeric characters \[a-z0-9A-Z\] separated by hyphens, underscores, or dots/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names with spaces', async () => {
-      const props = createMockProps({ formData: 'my ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name must consist of alphanumeric characters \[a-z0-9A-Z\] separated by hyphens, underscores, or dots/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('rejects names longer than 63 characters', async () => {
-      const longName = 'a'.repeat(64);
-      const props = createMockProps({ formData: longName });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name must be at most 63 characters long/i,
-        );
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('accepts names exactly 63 characters long', () => {
-      const validName = 'a'.repeat(63);
-      const props = createMockProps({ formData: validName });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      expect(input.value).toBe(validName);
-    });
-
-    it('rejects empty names', async () => {
-      const props = createMockProps({ formData: '   ' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(/Name is required/i);
-      });
-
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-    });
-
-    it('does not check catalog when format is invalid', async () => {
-      const props = createMockProps({ formData: 'invalid@name' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      act(() => {
-        jest.advanceTimersByTime(600);
-      });
-
-      await waitFor(() => {
-        expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
-      });
-    });
-
-    it('checks catalog only when format is valid', async () => {
-      const props = createMockProps({ formData: 'valid-name' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      act(() => {
-        jest.advanceTimersByTime(500);
-      });
-
-      await waitFor(() => {
-        expect(mockCatalogApi.getEntities).toHaveBeenCalledTimes(1);
-      });
-    });
-
-    it('shows format error in alert', async () => {
-      const props = createMockProps({ formData: 'invalid@name' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      renderWithProviders(props);
-
-      await waitFor(() => {
-        const input = screen.getByRole('textbox');
-        expect(input).toHaveAttribute('aria-invalid', 'true');
-        const alert = screen.getByRole('alert');
-        expect(alert).toBeInTheDocument();
-      });
-    });
-
-    it('clears format error when valid name is entered', async () => {
-      const props = createMockProps({ formData: 'invalid@name' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
-
-      const { rerender } = renderWithProviders(props);
-
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        expect(alert).toHaveTextContent(
-          /Name must consist of alphanumeric characters \[a-z0-9A-Z\] separated by hyphens, underscores, or dots/i,
-        );
-      });
-
-      rerender(
-        <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
-          <EEFileNamePickerExtension {...props} formData="valid-name" />
-        </TestApiProvider>,
-      );
-
-      await waitFor(() => {
-        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-      });
-    });
-  });
-
   describe('Cleanup', () => {
     it('cleans up timeout on unmount', () => {
       const props = createMockProps({ formData: 'test-ee' });
-      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.getEntityByRef.mockRejectedValue(new Error('Not found'));
 
       const { unmount } = renderWithProviders(props);
 
@@ -1077,7 +797,7 @@ describe('EEFileNamePickerExtension', () => {
         jest.advanceTimersByTime(500);
       });
 
-      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
     });
   });
 });

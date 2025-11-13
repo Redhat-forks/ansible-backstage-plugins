@@ -125,40 +125,35 @@ export const EEFileNamePickerExtension = ({
       setCheckError(null);
 
       try {
-        const { items } = await catalogApi.getEntities({
-          filter: {
-            kind: 'Component',
-            'spec.type': 'execution-environment',
-          },
-        });
+        const entityRef = `Component:default/${fileName.trim()}`;
+        const entity = await catalogApi.getEntityByRef(entityRef);
 
-        const normalizedFileName = fileName.toLowerCase().trim();
-        const foundEntity = items.find(entity => {
-          const entityName = entity.metadata.name?.toLowerCase() || '';
-          const entityTitle = entity.metadata.title?.toLowerCase() || '';
-          const specName =
-            (typeof entity.spec?.name === 'string'
-              ? entity.spec.name
-              : ''
-            )?.toLowerCase() || '';
-
-          return (
-            entityName === normalizedFileName ||
-            entityTitle === normalizedFileName ||
-            specName === normalizedFileName ||
-            entityName.startsWith(`${normalizedFileName}-`) ||
-            entityName === normalizedFileName
-          );
-        });
-
-        setExistingEntity(foundEntity || null);
+        if (
+          entity?.kind === 'Component' &&
+          entity?.spec?.type === 'execution-environment'
+        ) {
+          setExistingEntity(entity);
+        } else {
+          setExistingEntity(null);
+        }
       } catch (error) {
         const errorMessage =
-          error instanceof Error
-            ? error.message
-            : 'Failed to check if entity exists in catalog';
-        setCheckError(errorMessage);
-        setExistingEntity(null);
+          error instanceof Error ? error.message : String(error);
+        const isNotFoundError =
+          errorMessage.toLowerCase().includes('not found') ||
+          errorMessage.toLowerCase().includes('404');
+
+        if (isNotFoundError) {
+          setExistingEntity(null);
+          setCheckError(null);
+        } else {
+          setCheckError(
+            error instanceof Error
+              ? error.message
+              : 'Failed to check if entity exists in catalog',
+          );
+          setExistingEntity(null);
+        }
       } finally {
         setIsChecking(false);
       }

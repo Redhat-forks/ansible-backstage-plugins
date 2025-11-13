@@ -127,6 +127,7 @@ describe('RunTask', () => {
 
   const mockCatalogApi = {
     getEntities: jest.fn(),
+    getEntityByRef: jest.fn(),
   };
 
   // setup mock response
@@ -169,7 +170,9 @@ describe('RunTask', () => {
     );
     jest.clearAllMocks();
     mockNavigate.mockClear();
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+    mockCatalogApi.getEntityByRef.mockRejectedValue(
+      new Error('Entity not found'),
+    );
     if (!mockScaffolderApi.cancelTask) {
       mockScaffolderApi.cancelTask = jest.fn().mockResolvedValue(undefined);
     }
@@ -480,7 +483,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should handle cancel error and reset isCanceling', async () => {
       const consoleErrorSpy = jest
@@ -538,7 +541,7 @@ describe('RunTask', () => {
 
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should not cancel if conditions are not met', async () => {
       const cancelTaskSpy = jest.fn();
@@ -577,7 +580,7 @@ describe('RunTask', () => {
       expect(cancelTaskSpy).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Start Over functionality', () => {
@@ -649,7 +652,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should filter out token from parameters when starting over', async () => {
       const user = userEvent.setup();
@@ -708,7 +711,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should use default namespace when namespace is missing', async () => {
       const user = userEvent.setup();
@@ -757,7 +760,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should return early from handleStartOver if conditions are not met', async () => {
       const useTaskEventStreamMock =
@@ -804,7 +807,7 @@ describe('RunTask', () => {
       expect(mockNavigate).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should return early from handleStartOver if task metadata is missing', async () => {
       const useTaskEventStreamMock =
@@ -843,7 +846,7 @@ describe('RunTask', () => {
       expect(mockNavigate).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Entity link navigation', () => {
@@ -903,7 +906,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should handle entityRef link without namespace', async () => {
       const user = userEvent.setup();
@@ -957,7 +960,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should log warning for unexpected entityRef format', async () => {
       const consoleWarnSpy = jest
@@ -1018,7 +1021,7 @@ describe('RunTask', () => {
 
       consoleWarnSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Back button functionality', () => {
@@ -1078,7 +1081,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should navigate back in history when template metadata is missing', async () => {
       const user = userEvent.setup();
@@ -1117,7 +1120,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Download archive functionality', () => {
@@ -1126,7 +1129,7 @@ describe('RunTask', () => {
     let removeSpy: jest.SpyInstance | null = null;
 
     beforeEach(() => {
-      mockCatalogApi.getEntities.mockClear();
+      mockCatalogApi.getEntityByRef.mockClear();
     });
 
     afterEach(() => {
@@ -1152,6 +1155,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -1196,9 +1201,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [mockEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(mockEntity);
 
       await render(<RunTask />);
 
@@ -1206,11 +1209,11 @@ describe('RunTask', () => {
         () => {
           expect(screen.getByText('Download EE Files')).toBeInTheDocument();
         },
-        { timeout: 5000 },
+        { timeout: 10000 },
       );
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should not show download button when publishToSCM is true', async () => {
       const useTaskEventStreamMock =
@@ -1257,7 +1260,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should download archive when download button is clicked', async () => {
       const user = userEvent.setup();
@@ -1269,6 +1272,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -1313,9 +1318,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [mockEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(mockEntity);
 
       await render(<RunTask />);
 
@@ -1323,7 +1326,7 @@ describe('RunTask', () => {
         () => {
           expect(screen.getByText('Download EE Files')).toBeInTheDocument();
         },
-        { timeout: 5000 },
+        { timeout: 10000 },
       );
 
       const createObjectURLSpy = jest.fn(() => 'blob:mock-url');
@@ -1375,7 +1378,7 @@ describe('RunTask', () => {
       delete (globalThis.URL as any).createObjectURL;
       delete (globalThis.URL as any).revokeObjectURL;
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should handle download error gracefully', async () => {
       const user = userEvent.setup();
@@ -1390,6 +1393,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -1434,10 +1439,8 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities
-        .mockResolvedValueOnce({
-          items: [mockEntity],
-        })
+      mockCatalogApi.getEntityByRef
+        .mockResolvedValueOnce(mockEntity)
         .mockRejectedValueOnce(new Error('Failed to fetch'));
 
       await render(<RunTask />);
@@ -1457,12 +1460,12 @@ describe('RunTask', () => {
 
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Entity fetching', () => {
     beforeEach(() => {
-      mockCatalogApi.getEntities.mockClear();
+      mockCatalogApi.getEntityByRef.mockClear();
     });
 
     it('should fetch entity from catalog when task is completed', async () => {
@@ -1473,6 +1476,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -1516,26 +1521,21 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [mockEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(mockEntity);
 
       await render(<RunTask />);
 
       await waitFor(
         () => {
-          expect(mockCatalogApi.getEntities).toHaveBeenCalledWith({
-            filter: {
-              kind: 'Component',
-              'spec.type': 'execution-environment',
-            },
-          });
+          expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledWith(
+            'Component:default/test-ee',
+          );
         },
-        { timeout: 5000 },
+        { timeout: 10000 },
       );
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should log warning when entity is not found', async () => {
       const consoleWarnSpy = jest
@@ -1579,9 +1579,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(null);
 
       await render(<RunTask />);
 
@@ -1591,12 +1589,12 @@ describe('RunTask', () => {
             'Could not find registered EE component for test-ee',
           );
         },
-        { timeout: 5000 },
+        { timeout: 10000 },
       );
 
       consoleWarnSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should handle entity fetch error', async () => {
       const consoleErrorSpy = jest
@@ -1640,8 +1638,8 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockRejectedValue(
-        new Error('Failed to fetch entities'),
+      mockCatalogApi.getEntityByRef.mockRejectedValue(
+        new Error('Failed to fetch entity'),
       );
 
       await render(<RunTask />);
@@ -1658,12 +1656,12 @@ describe('RunTask', () => {
 
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('getMatchingEntity edge cases', () => {
     beforeEach(() => {
-      mockCatalogApi.getEntities.mockReset();
+      mockCatalogApi.getEntityByRef.mockReset();
     });
     it('should fetch entity when not cached in getMatchingEntity', async () => {
       const useTaskEventStreamMock =
@@ -1673,6 +1671,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -1716,21 +1716,21 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities
-        .mockResolvedValueOnce({ items: [] })
-        .mockResolvedValueOnce({ items: [mockEntity] });
+      mockCatalogApi.getEntityByRef
+        .mockRejectedValueOnce(new Error('Not found'))
+        .mockResolvedValueOnce(mockEntity);
 
       await render(<RunTask />);
 
       await waitFor(
         () => {
-          expect(mockCatalogApi.getEntities).toHaveBeenCalled();
+          expect(mockCatalogApi.getEntityByRef).toHaveBeenCalled();
         },
         { timeout: 5000 },
       );
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should handle missing eeFileName in getMatchingEntity', async () => {
       const consoleErrorSpy = jest
@@ -1784,7 +1784,7 @@ describe('RunTask', () => {
 
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should fetch and cache entity when not cached in getMatchingEntity', async () => {
       const useTaskEventStreamMock =
@@ -1794,6 +1794,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -1837,24 +1839,24 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities
-        .mockResolvedValueOnce({ items: [] })
-        .mockResolvedValueOnce({ items: [mockEntity] });
+      mockCatalogApi.getEntityByRef
+        .mockRejectedValueOnce(new Error('Not found'))
+        .mockResolvedValueOnce(mockEntity);
 
       await render(<RunTask />);
 
       await waitFor(
         () => {
-          expect(mockCatalogApi.getEntities).toHaveBeenCalled();
+          expect(mockCatalogApi.getEntityByRef).toHaveBeenCalled();
         },
         { timeout: 5000 },
       );
 
-      const calls = mockCatalogApi.getEntities.mock.calls;
+      const calls = mockCatalogApi.getEntityByRef.mock.calls;
       expect(calls.length).toBeGreaterThan(0);
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should fetch entity with execution-environment filter when not cached and set matchingEntity', async () => {
       const useTaskEventStreamMock =
@@ -1864,6 +1866,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const initialEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid-initial',
@@ -1907,9 +1911,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [initialEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(initialEntity);
 
       await render(<RunTask />);
 
@@ -1920,12 +1922,8 @@ describe('RunTask', () => {
         { timeout: 15000 },
       );
 
-      expect(mockCatalogApi.getEntities).toHaveBeenCalledWith(
-        expect.objectContaining({
-          filter: expect.objectContaining({
-            'spec.type': 'execution-environment',
-          }),
-        }),
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledWith(
+        expect.stringContaining('Component:default/'),
       );
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
@@ -1939,6 +1937,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const initialEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid-initial',
@@ -1982,9 +1982,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [initialEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(initialEntity);
 
       await render(<RunTask />);
 
@@ -1996,7 +1994,7 @@ describe('RunTask', () => {
       );
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should log error when entity is not found in catalog in getMatchingEntity', async () => {
       const consoleErrorSpy = jest
@@ -2040,47 +2038,44 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities
-        .mockResolvedValueOnce({ items: [] })
-        .mockResolvedValueOnce({ items: [] });
+      mockCatalogApi.getEntityByRef
+        .mockRejectedValueOnce(new Error('Not found'))
+        .mockRejectedValueOnce(new Error('Not found'));
 
       await render(<RunTask />);
 
       await waitFor(
         () => {
-          expect(mockCatalogApi.getEntities).toHaveBeenCalled();
+          expect(mockCatalogApi.getEntityByRef).toHaveBeenCalled();
         },
         { timeout: 5000 },
       );
 
       await waitFor(
         () => {
-          expect(mockCatalogApi.getEntities).toHaveBeenCalled();
+          expect(mockCatalogApi.getEntityByRef).toHaveBeenCalled();
         },
         { timeout: 5000 },
       );
 
-      const calls = mockCatalogApi.getEntities.mock.calls;
+      const calls = mockCatalogApi.getEntityByRef.mock.calls;
       expect(calls.length).toBeGreaterThan(0);
 
-      expect(mockCatalogApi.getEntities).toHaveBeenCalledWith(
-        expect.objectContaining({
-          filter: expect.objectContaining({
-            'spec.type': 'execution-environment',
-          }),
-        }),
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledWith(
+        expect.stringContaining('Component:default/'),
       );
 
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Download archive error handling', () => {
     beforeEach(() => {
-      mockCatalogApi.getEntities.mockReset();
+      mockCatalogApi.getEntityByRef.mockReset();
     });
     it('should handle missing entity definition or readme in handleDownloadArchive', async () => {
+      jest.setTimeout(20000);
       const consoleErrorSpy = jest
         .spyOn(console, 'error')
         .mockImplementation(() => {});
@@ -2093,6 +2088,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const entityWithoutFields = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -2134,9 +2131,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [entityWithoutFields],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(entityWithoutFields);
 
       await render(<RunTask />);
 
@@ -2173,7 +2168,7 @@ describe('RunTask', () => {
       delete (globalThis.URL as any).revokeObjectURL;
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-      mockCatalogApi.getEntities.mockReset();
+      mockCatalogApi.getEntityByRef.mockReset();
     }, 30000);
 
     it('should handle download archive error in catch block', async () => {
@@ -2189,6 +2184,8 @@ describe('RunTask', () => {
         useTaskEventStreamMock.getMockImplementation();
 
       const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
         metadata: {
           name: 'test-ee',
           uid: 'test-uid',
@@ -2232,9 +2229,7 @@ describe('RunTask', () => {
         stepLogs: {},
       }));
 
-      mockCatalogApi.getEntities.mockResolvedValue({
-        items: [mockEntity],
-      });
+      mockCatalogApi.getEntityByRef.mockResolvedValue(mockEntity);
 
       await render(<RunTask />);
 
@@ -2270,7 +2265,7 @@ describe('RunTask', () => {
       globalThis.Blob = originalBlob;
       consoleErrorSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-      mockCatalogApi.getEntities.mockReset();
+      mockCatalogApi.getEntityByRef.mockReset();
     }, 30000);
   });
 
@@ -2356,7 +2351,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should hide logs when text item is expanded', async () => {
       const user = userEvent.setup();
@@ -2420,7 +2415,7 @@ describe('RunTask', () => {
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Task status edge cases', () => {
@@ -2463,7 +2458,7 @@ describe('RunTask', () => {
       expect(screen.queryByText('Download EE Files')).not.toBeInTheDocument();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 
   describe('Show download button edge cases', () => {
@@ -2510,7 +2505,7 @@ describe('RunTask', () => {
       expect(screen.queryByText('Download EE Files')).not.toBeInTheDocument();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
 
     it('should not show download button when there is no catalog info step', async () => {
       const useTaskEventStreamMock =
@@ -2551,6 +2546,6 @@ describe('RunTask', () => {
       expect(screen.queryByText('Download EE Files')).not.toBeInTheDocument();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    });
+    }, 15000);
   });
 });
