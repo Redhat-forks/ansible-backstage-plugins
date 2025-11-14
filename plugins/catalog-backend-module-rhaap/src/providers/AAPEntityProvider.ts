@@ -633,6 +633,18 @@ export class AAPEntityProvider implements EntityProvider {
       throw new Error('AAPEntityProvider is not connected yet');
     }
 
+    if (!entity.metadata?.name) {
+      throw new Error(
+        'Name [metadata.name] is required for Execution Environment registration',
+      );
+    }
+
+    if (!entity.spec?.type || entity.spec.type !== 'execution-environment') {
+      throw new Error(
+        'Type [spec.type] must be "execution-environment" for Execution Environment registration',
+      );
+    }
+
     this.logger.info(`Registering entity ${entity.metadata?.name}`);
 
     await this.connection.applyMutation({
