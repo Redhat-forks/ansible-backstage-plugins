@@ -39,7 +39,7 @@ jest.mock('@material-ui/core/styles', () => {
 import useAsync from 'react-use/esm/useAsync';
 import { useApi } from '@backstage/core-plugin-api';
 import { useStarredEntities } from '@backstage/plugin-catalog-react';
-import { Favourites, YellowStar } from './Favourites';
+import { Favourites } from './Favourites';
 
 // Type the mocks for convenience
 const mockedUseAsync = useAsync as jest.MockedFunction<typeof useAsync>;

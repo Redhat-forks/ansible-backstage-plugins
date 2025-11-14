@@ -88,7 +88,7 @@ export const EEDetailsPage: React.FC = () => {
       .getEntities({
         filter: [
           {
-            'metadata.name': templateName,
+            'metadata.name': templateName ?? '',
             kind: 'Component',
             'spec.type': 'execution-environment',
           },
@@ -99,24 +99,22 @@ export const EEDetailsPage: React.FC = () => {
         const items = Array.isArray(entities)
           ? entities
           : entities?.items || [];
-        // for first matching entity (or null)
         const first = items && items.length > 0 ? items[0] : null;
-        // first.spec.readme = "# Sample Execution Environment\nThis is a sample README for the execution environment.\n\n## Usage\nInstructions on how to use this execution environment.\n";
-        //     first.spec.definition = "abcd"
         setEntity(first);
       })
       .catch(() => {
         setEntity(null);
       });
-  }, [catalogApi, templateName]); // added callback dependency here need to check
+  }, [catalogApi, templateName]);
 
   useEffect(() => {
     callApi();
-  }, [callApi]); // added here callapi dependency need to check
+  }, [callApi]);
 
   useEffect(() => {
     if (entity && (!entity.spec || !entity?.spec?.readme)) {
       const rawUrl = makeDefaultReadmeFileUrl();
+      if (!rawUrl) return;
       fetch(rawUrl)
         .then(r => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -125,9 +123,9 @@ export const EEDetailsPage: React.FC = () => {
         .then(text => {
           setDefaultReadme(text);
         })
-        .catch(e => {});
+        .catch(() => {});
     }
-  }, [entity]); // add here dependency , makeDefaultReadmeFileUrl need to check
+  });
 
   function makeDefaultReadmeFileUrl() {
     const sourceLocation =
