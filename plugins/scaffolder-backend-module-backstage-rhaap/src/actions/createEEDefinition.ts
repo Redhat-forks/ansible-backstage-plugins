@@ -706,14 +706,16 @@ spec:
         baseImage:
           title: Base execution environment image
           type: string
-          default: '${values.baseImage || values.customBaseImage}'
+          default: 'registry.access.redhat.com/ubi9/python-311:latest'
           enum:
             - 'registry.access.redhat.com/ubi9/python-311:latest'
-            - 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'
+            - 'custom'
           enumNames:
             - 'Red Hat Universal Base Image 9 w/ Python 3.11 (Recommended)'
-            - 'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
-          ui:widget: radio
+            - 'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)'
+            - 'Custom Image'
+          ui:field: BaseImagePicker
       dependencies:
         baseImage:
           oneOf:
@@ -768,7 +770,6 @@ spec:
         collections:
           title: Ansible Collections
           type: array
-          default: ${collectionsJson}
           description: Add collections manually
           items:
             type: object
@@ -776,23 +777,51 @@ spec:
               name:
                 type: string
                 title: Collection Name
-                description: Collection name in namespace.collection format
+                description: The name of the collection in namespace.collection format
                 pattern: '^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$'
                 ui:placeholder: 'e.g., community.general'
               version:
                 type: string
                 title: Version (Optional)
-                description: Specific version of the collection
+                description: |
+                  The version of the collection to install.
+                  If not specified, the latest version will be installed.
                 ui:placeholder: 'e.g., 7.2.1'
-          ui:options:
-            addable: true
-            orderable: true
-            removable: true
+              source:
+                type: string
+                title: Source (Optional)
+                description: |
+                  The Galaxy URL to pull the collection from.
+                  If type is 'file', 'dir', or 'subdirs', this should be a local path to the collection.
+                ui:placeholder: 'e.g., https://github.com/ansible-collections/community.general'
+              type:
+                type: string
+                title: Type (Optional)
+                description: Determines the source of the collection.
+                enum:
+                  - 'file'
+                  - 'galaxy'
+                  - 'git'
+                  - 'url'
+                  - 'dir'
+                  - 'subdirs'
+              signatures:
+                type: array
+                title: Signatures (Optional)
+                description: |
+                  A list of signature sources that are used to supplement those found on the Galaxy server during collection installation and ansible-galaxy collection verify.
+                  Signature sources should be URIs that contain the detached signature.
+                items:
+                  type: string
+                  title: Signature
+                  description: URI of the signature file
+          ui:field: CollectionsPicker
         collectionsFile:
           title: Upload a requirements.yml file
           description: Optionally upload a requirements file with collection details
           type: string
           format: data-url
+          ui:field: FileUploadPicker
         specifyRequirements:
           title: Specify additional Python requirements and System packages
           type: boolean
@@ -805,43 +834,41 @@ spec:
                 specifyRequirements:
                   const: true
                 pythonRequirements:
-                  title: Python Requirements
+                  title: Additional Python Requirements
                   type: array
-                  default: ${requirementsJson}
-                  description: Add Python requirements to be included in the execution environment definition file (optional).
+                  description: |
+                    Specify additional python packages that are required in addition to what the selected collections already specify as dependencies.
+                    Packages already specified in the collections as a dependency should not be repeated here.
                   items:
                     type: string
                     title: Python package
                     description: Python package (with optional version specification)
                     ui:placeholder: 'e.g., requests>=2.28.0'
-                  ui:options:
-                    addable: true
-                    orderable: true
-                    removable: true
+                  ui:field: PackagesPicker
                 pythonRequirementsFile:
                   type: string
                   format: data-url
                   title: Pick a file with Python requirements
                   description: Upload a requirements.txt file with python package details
+                  ui:field: FileUploadPicker
                 systemPackages:
-                  title: System Packages
+                  title: Additional System Packages
                   type: array
-                  default: ${packagesJson}
-                  description: Add system packages/binaries to be included in the execution environment definition file (optional).
+                  description: |
+                    Specify additional system-level packages that are required in addition to what the selected collections already specify as dependencies.
+                    Packages already specified in the collections as a dependency should not be repeated here.
                   items:
                     type: string
                     title: System package
                     description: System package
                     ui:placeholder: 'e.g., libxml2-dev [platform:dpkg], libssh-devel [platform:rpm]'
-                  ui:options:
-                    addable: true
-                    orderable: true
-                    removable: true
+                  ui:field: PackagesPicker
                 systemPackagesFile:
                   type: string
                   format: data-url
                   title: Pick a file with system packages
                   description: Upload a bindep.txt file with system package details
+                  ui:field: FileUploadPicker
             - properties:
                 specifyRequirements:
                   const: false
@@ -853,7 +880,6 @@ spec:
         mcpServers:
           title: MCP Servers
           type: array
-          default: ${mcpServersJson}
           items:
             type: string
             title: MCP Server
@@ -861,34 +887,15 @@ spec:
               - Github
               - AWS
               - Azure
-            ui:widget: select
-            ui:help: "Update placeholder values within the YAML file once the EE definition file is created."
-          ui:options:
-            addable: true
-            orderable: true
-            removable: true
-      dependencies:
-        mcpServers:
-          oneOf:
-            # Case: at least one item selected
-            - properties:
-                mcpServers:
-                  minItems: 1
-              ui:help: ""
-            # Case: no selection yet
-            - properties:
-                mcpServers:
-                  maxItems: 0
-              ui:help: ""
+          ui:field: MCPServersPicker
 
-    # Step 3: Additional Build Steps
+    # Step 4: Additional Build Steps
     - title: Additional Build Steps
       description: Add custom build steps that will be executed at specific points during the build process. These map to ansible-builder's additional_build_steps configuration.
       properties:
         additionalBuildSteps:
           title: Additional Build Steps
           type: array
-          default: ${buildStepsJson}
           items:
             type: object
             properties:
@@ -921,37 +928,34 @@ spec:
                 description: List of commands to execute
                 items:
                   type: string
-                  title: Command
-                  ui:placeholder: 'e.g., RUN dnf update'
-                ui:options:
-                  addable: true
-                  orderable: true
-                  removable: true
             required: ['stepType', 'commands']
-          ui:options:
-            addable: true
-            orderable: true
-            removable: true
+          ui:field: AdditionalBuildStepsPicker
 
     # Step 9: Repository Configuration
-    - title: Generate (and Publish)
+    - title: Generate and publish
       description: Generate and publish the EE definition file and template.
       properties:
         eeFileName:
           title: EE File Name
           type: string
           description: Name of the Execution Environment file.
-          ui:help: "Specify the filename for the EE definition file."
+          ui:field: EEFileNamePicker
+          ui:help: "Specify the filename for the Execution Environment definition file."
         templateDescription:
-          title: Template Description
+          title: Description
           type: string
-          description: Description for the generated template.
-          ui:help: "Helps others understand when to use this template."
+          description: |
+            Description for the generated Execution Environment definition.
+            This description is used when displaying the Execution Environment definition in the catalog.
+            Additionally, this description is also used in the Software Template that is generated with SCM-based publishing.
         tags:
-          title: Tags for the generated template
-          description: Enter one or more tags.
+          title: Tags
+          description: |
+            Add tags to make this EE definition discoverable in the catalog.
+            The default execution-environment tag identifies this as an EE component; keeping it is highly recommended
           type: array
-          default: ${tagsJson}
+          default:
+            - 'execution-environment'
           items:
             type: string
           ui:
@@ -1016,7 +1020,11 @@ spec:
       input:
         values:
           eeFileName: \${{ parameters.eeFileName }}
+          eeDescription: \${{ parameters.templateDescription }}
+          tags: \${{ parameters.tags or [] }}
+          publishToSCM: \${{ parameters.publishToSCM }}
           baseImage: \${{ parameters.baseImage === 'custom' and parameters.customBaseImage or parameters.baseImage }}
+          customBaseImage: \${{ parameters.customBaseImage or '' }}
           popularCollections: \${{ parameters.popularCollections or [] }}
           collections: \${{ parameters.collections or [] }}
           collectionsFile: \${{ parameters.collectionsFile or [] }}
@@ -1026,23 +1034,9 @@ spec:
           systemPackagesFile: \${{ parameters.systemPackagesFile or [] }}
           mcpServers: \${{ parameters.mcpServers or [] }}
           additionalBuildSteps: \${{ parameters.additionalBuildSteps or [] }}
-
-    # Step 2: Generate EE definition template
-    - id: create-template
-      name: Generating Template for the EE Definition
-      action: ansible:ee:create-template
-      input:
-        values:
-          contextDirName:  \${{ steps['create-ee-definition'].output.contextDirName }}
-          eeFileName: \${{ parameters.eeFileName }}
-          baseImage: \${{ parameters.baseImage or '' }}
-          customBaseImage: \${{ parameters.customBaseImage or '' }}
-          collections: \${{ steps['create-ee-definition'].output.collections }}
-          pythonRequirements: \${{ steps['create-ee-definition'].output.pythonRequirements }}
-          systemPackages: \${{ steps['create-ee-definition'].output.systemPackages }}
-          mcpServers: \${{ parameters.mcpServers or [] }}
-          additionalBuildSteps: \${{ steps['create-ee-definition'].output.additionalBuildSteps }}
-          tags: \${{ parameters.tags or [] }}
+          sourceControlProvider: \${{ parameters.sourceControlProvider }}
+          repositoryOwner: \${{ parameters.repositoryOwner }}
+          repositoryName: \${{ parameters.repositoryName }}
 
     # Step 3: Validate the SCM repository (optional)
     - id: prepare-publish
@@ -1057,19 +1051,26 @@ spec:
         eeFileName: \${{ parameters.eeFileName }}
         contextDirName: \${{ steps['create-ee-definition'].output.contextDirName }}
 
-    # Step 4: Generate catalog-info file
-    - id: create-catalog-info
-      action: ansible:ee:create-catalog-info
-      name: Creating Catalog Info Component for the EE Definition
+    - id: create-catalog-info-file
+      action: catalog:write
+      if: \${{ parameters.publishToSCM }}
+      name: Create catalog component file for the EE Definition
       input:
-        componentName: \${{ parameters.eeFileName }}
-        description: \${{ parameters.templateDescription }}
-        tags: \${{ parameters.tags or [] }}
-        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl or ''}}
-        contextDirName: \${{ steps['create-ee-definition'].output.contextDirName }}
-        publishToSCM: \${{ parameters.publishToSCM }}
-        eeDefinitionContent: \${{ steps['create-ee-definition'].output.eeDefinitionContent }}
-        readmeContent: \${{ steps['create-ee-definition'].output.readmeContent }}
+        filePath: \${{ steps['create-ee-definition'].output.catalogInfoPath }}
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: Component
+          metadata:
+            name: \${{ parameters.eeFileName }}
+            description: \${{ parameters.templateDescription }}
+            tags: \${{ parameters.tags or [] }}
+            annotations:
+              backstage.io/techdocs-ref: dir:.
+              backstage.io/managed-by-location: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+          spec:
+            type: execution-environment
+            owner: \${{ steps['create-ee-definition'].output.owner }}
+            lifecycle: production
 
     # Step 5: Create and publish to a new GitHub Repository
     - id: publish-github
