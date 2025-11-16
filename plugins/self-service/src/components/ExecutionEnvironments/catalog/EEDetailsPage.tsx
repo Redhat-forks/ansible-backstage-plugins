@@ -345,7 +345,7 @@ export const EEDetailsPage: React.FC = () => {
           entity={entity}
           onConfirm={() => {
             setMenuId('');
-            navigate('/self-service/ee/');
+            navigate(-1);
           }}
           onClose={() => {
             setMenuId('');
@@ -430,11 +430,12 @@ export const EEDetailsPage: React.FC = () => {
               key={i}
               className={classes.menuItem}
             >
-              <Typography>
+              <Typography
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              >
                 <ListItemIcon style={{ minWidth: 42 }}>
                   {item.icon}
                 </ListItemIcon>
-                {/* {item.icon } */}
                 {item.title}
               </Typography>
             </MenuItem>
