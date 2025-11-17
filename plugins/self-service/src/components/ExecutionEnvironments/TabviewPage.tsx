@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { Typography, Box, makeStyles } from '@material-ui/core';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
-import { CatalogContent } from './catalog/CatalogContent';
 import { CreateContent } from './create/CreateContent';
 import { DocsContent } from './docs/DocsContent';
+import { EntityCatalogContent } from './catalog/CatalogContent';
 
 const useStyles = makeStyles(() => ({
   tabContainer: {
@@ -113,13 +113,13 @@ export const EETabs: React.FC = () => {
   const renderContent = () => {
     switch (selectedTab) {
       case 0:
-        return <CatalogContent onTabSwitch={handleTabSwitch} />;
+        return <EntityCatalogContent onTabSwitch={handleTabSwitch} />;
       case 1:
         return <CreateContent />;
       case 2:
         return <DocsContent />;
       default:
-        return <CatalogContent onTabSwitch={handleTabSwitch} />;
+        return <EntityCatalogContent onTabSwitch={setSelectedTab} />;
     }
   };
 
@@ -141,7 +141,6 @@ export const EETabs: React.FC = () => {
           })) as any
         }
       />
-
       <Content>{renderContent()}</Content>
     </Page>
   );
