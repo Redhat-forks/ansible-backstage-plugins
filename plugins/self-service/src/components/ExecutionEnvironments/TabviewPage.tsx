@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { Typography, Box, makeStyles } from '@material-ui/core';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
