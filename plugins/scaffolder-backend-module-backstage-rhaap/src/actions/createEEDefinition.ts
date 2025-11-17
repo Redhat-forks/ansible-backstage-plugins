@@ -56,10 +56,11 @@ interface EEDefinitionInput {
 }
 
 export function createEEDefinitionAction(options: {
+  frontendUrl: string;
   auth: AuthService;
   discovery: DiscoveryService;
 }) {
-  const { auth, discovery } = options;
+  const { frontendUrl, auth, discovery } = options;
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',
@@ -399,6 +400,7 @@ export function createEEDefinitionAction(options: {
         logger.info(
           `[ansible:create:ee-definition] created README.md at ${readmePath}`,
         );
+        ctx.output('readmeContent', readmeContent);
 
         // write README contents to docs/index.md
         await fs.writeFile(docsMdPath, readmeContent);
@@ -450,12 +452,16 @@ export function createEEDefinitionAction(options: {
             logger.info(
               `[ansible:create:ee-definition] successfully registered EE catalog entity ${eeFileName} in the catalog`,
             );
-            ctx.output('generatedEntityRef', stringifyEntityRef(entity));
           } else if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Failed to register EE definition: ${errorText}`);
           }
         }
+
+        ctx.output(
+          'generatedEntityRef',
+          `${frontendUrl}/self-service/catalog/${eeFileName}`,
+        );
         logger.info(
           '[ansible:create:ee-definition] successfully created all Execution Environment files',
         );
