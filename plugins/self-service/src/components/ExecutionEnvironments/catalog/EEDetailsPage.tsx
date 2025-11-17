@@ -34,6 +34,7 @@ import {
 } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
+import { MarkdownContent, Link as CoreLink } from '@backstage/core-components';
 
 const useStyles = makeStyles(theme => ({
   breadcrumb: {
@@ -44,7 +45,6 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 12,
     boxShadow: '0px 8px 20px rgba(0,0,0,0.1)',
     padding: '4px 0',
-    backgroundColor: '#0f0f0f',
   },
   menuItem: {
     alignItems: 'flex-start',
@@ -312,7 +312,7 @@ export const EEDetailsPage: React.FC = () => {
       const readmeFileName = `README-${
         entity.spec.name || 'execution-environment'
       }.md`;
-      const archiveName = `${entity.spec.name || 'execution-environment'}.tar`;
+      const archiveName = `${entity.metadata.name || 'execution-environment'}.tar`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },
@@ -464,7 +464,12 @@ export const EEDetailsPage: React.FC = () => {
             gridGap={24}
           >
             {/* Links Card */}
-            {!entity?.spec?.parameters?.publishToSCM && (
+            {!(
+              entity &&
+              entity.spec &&
+              entity.spec.parameters &&
+              entity.spec.parameters.publishToSCM
+            ) && (
               <Card
                 variant="outlined"
                 style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
@@ -485,7 +490,7 @@ export const EEDetailsPage: React.FC = () => {
                   {[
                     {
                       icon: <GetAppIcon />,
-                      text: 'Download ee.yaml file',
+                      text: 'Download EE files',
                       onClick: handleDownloadArchive,
                     },
                   ].map((item, i) => {
@@ -577,25 +582,37 @@ export const EEDetailsPage: React.FC = () => {
                       flexDirection: 'column',
                       alignItems: 'center',
                       minWidth: 120,
-                      pointerEvents: entity?.spec?.parameters?.publishToSCM
-                        ? 'inherit'
-                        : 'none',
-                      opacity: entity?.spec?.parameters?.publishToSCM ? 1 : 0.5,
+                      pointerEvents:
+                        entity &&
+                        entity.spec &&
+                        entity.spec.parameters &&
+                        entity.spec.parameters.publishToSCM
+                          ? 'inherit'
+                          : 'none',
+                      opacity:
+                        entity &&
+                        entity.spec &&
+                        entity.spec.parameters &&
+                        entity.spec.parameters.publishToSCM
+                          ? 1
+                          : 0.5,
                     }}
                   >
                     <DescriptionOutlinedIcon
                       style={{ color: '#1976d2', fontSize: 30 }}
                     />
-                    <Typography
-                      variant="body2"
-                      style={{
-                        color: '#1976d2',
-                        fontWeight: 600,
-                        marginTop: 6,
-                      }}
-                    >
-                      VIEW <br /> TECHDOCS
-                    </Typography>
+                    <CoreLink to={`catalog/default/component/${templateName}`}>
+                      <Typography
+                        variant="body2"
+                        style={{
+                          color: '#1976d2',
+                          fontWeight: 600,
+                          marginTop: 6,
+                        }}
+                      >
+                        VIEW <br /> TECHDOCS
+                      </Typography>
+                    </CoreLink>
                   </Box>
 
                   <Box
@@ -606,10 +623,20 @@ export const EEDetailsPage: React.FC = () => {
                       flexDirection: 'column',
                       alignItems: 'center',
                       minWidth: 120,
-                      pointerEvents: entity?.spec?.parameters?.publishToSCM
-                        ? 'inherit'
-                        : 'none',
-                      opacity: entity?.spec?.parameters?.publishToSCM ? 1 : 0.5,
+                      pointerEvents:
+                        entity &&
+                        entity.spec &&
+                        entity.spec.parameters &&
+                        entity.spec.parameters.publishToSCM
+                          ? 'inherit'
+                          : 'none',
+                      opacity:
+                        entity &&
+                        entity.spec &&
+                        entity.spec.parameters &&
+                        entity.spec.parameters.publishToSCM
+                          ? 1
+                          : 0.5,
                     }}
                   >
                     <GitHubIcon style={{ color: '#1976d2', fontSize: 30 }} />
@@ -720,29 +747,9 @@ export const EEDetailsPage: React.FC = () => {
           <Box flex={2}>
             <Card variant="outlined">
               <CardContent>
-                <Typography
-                  variant="h6"
-                  style={{
-                    fontWeight: 700,
-                    fontSize: '1.5rem',
-                    margin: '6px 0 13px 10px',
-                  }}
-                >
-                  Next Steps: Build and Use Your Execution Environment 🛠️
-                </Typography>
-                <Divider />
-                <Typography
-                  variant="body2"
-                  style={{
-                    whiteSpace: 'pre-line',
-                    marginLeft: 10,
-                    marginTop: 14,
-                    marginBottom: 10,
-                  }}
-                >
-                  {/* {readme} */}
-                  {entity?.spec.readme || defaultReadme}
-                </Typography>
+                <MarkdownContent
+                  content={entity?.spec.readme || defaultReadme}
+                />
               </CardContent>
             </Card>
           </Box>
