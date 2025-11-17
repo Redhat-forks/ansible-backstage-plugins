@@ -26,6 +26,8 @@ export const catalogModuleRhaap = createBackendModule({
         scheduler: coreServices.scheduler,
         ansibleService: ansibleServiceRef,
         httpRouter: coreServices.httpRouter,
+        discovery: coreServices.discovery,
+        auth: coreServices.auth,
       },
       async init({
         logger,
@@ -35,6 +37,8 @@ export const catalogModuleRhaap = createBackendModule({
         httpRouter,
         catalogProcessing,
         catalogModel,
+        discovery,
+        auth,
       }) {
         catalogModel.setFieldValidators(
           makeValidator({
@@ -56,7 +60,6 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
-
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
@@ -76,6 +79,8 @@ export const catalogModuleRhaap = createBackendModule({
             logger,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
+            discovery: discovery,
+            auth: auth,
           })) as any,
         );
       },

@@ -35,6 +35,8 @@ import {
   createProjectAction,
   createShowCases,
   launchJobTemplate,
+  createEEDefinitionAction,
+  prepareForPublishAction,
 } from './actions';
 
 import {
@@ -43,6 +45,7 @@ import {
   useCaseNameFilter,
 } from './filters';
 import { handleAutocompleteRequest } from './autocomplete';
+
 /**
  * @public
  * The Ansible Module for the Scaffolder Backend
@@ -59,6 +62,8 @@ export const scaffolderModuleAnsible = createBackendModule({
         scaffolderTemplating: scaffolderTemplatingExtensionPoint,
         autocomplete: scaffolderAutocompleteExtensionPoint,
         ansibleService: ansibleServiceRef,
+        auth: coreServices.auth,
+        discovery: coreServices.discovery,
       },
       async init({
         scaffolder,
@@ -67,6 +72,8 @@ export const scaffolderModuleAnsible = createBackendModule({
         scaffolderTemplating,
         autocomplete,
         ansibleService,
+        auth,
+        discovery,
       }) {
         const ansibleConfig = getAnsibleConfig(config);
         scaffolder.addActions(
@@ -77,6 +84,13 @@ export const scaffolderModuleAnsible = createBackendModule({
           launchJobTemplate(ansibleService),
           cleanUp(ansibleService),
           createShowCases(ansibleService, ansibleConfig),
+          createEEDefinitionAction({
+            auth,
+            discovery,
+          }),
+          prepareForPublishAction({
+            ansibleConfig: ansibleConfig,
+          }),
         );
         scaffolderTemplating.addTemplateFilters({
           useCaseNameFilter: useCaseNameFilter,
