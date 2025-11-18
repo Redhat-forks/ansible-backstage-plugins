@@ -19,14 +19,11 @@ import Router from 'express-promise-router';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import { DiscoveryService, AuthService } from '@backstage/backend-plugin-api';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
-  discovery: DiscoveryService;
-  auth: AuthService;
 }): Promise<express.Router> {
   const { logger, aapEntityProvider, jobTemplateProvider } = options;
   const router = Router();
