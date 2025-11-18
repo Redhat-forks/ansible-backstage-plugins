@@ -757,6 +757,40 @@ export class UseCaseMaker {
     return `${this.scmIntegration?.host}?repo=${repoName}&owner=${repoOwner}`;
   }
 
+  async fetchReadmeContent(options: { readmeUrl: string }): Promise<string> {
+    const { readmeUrl } = options;
+    let response;
+
+    try {
+      let headers;
+      this.logger.info(`SCM Type: ${this.scmType}`);
+      this.logger.info(`SCM Integration Token: ${this.scmIntegration?.token}`);
+      if (this.scmType?.toString().toLowerCase() === 'github') {
+        headers = {
+          Authorization: `Bearer `,
+          Accept: 'application/vnd.github+json',
+        };
+      } else if (this.scmType?.toString().toLowerCase() === 'gitlab') {
+        headers = {
+          'Content-Type': 'application/json',
+          ...(this.scmIntegration?.token && {
+            'PRIVATE-TOKEN': this.scmIntegration?.token,
+          }),
+        };
+      } else {
+        throw new Error(`Unsupported SCM type: ${this.scmType}`);
+      }
+
+      this.logger.info(`Fetching README content from ${readmeUrl}`);
+      response = await fetch(`${readmeUrl}`, { headers });
+      return response.text();
+    } catch (error: any) {
+      throw new Error(
+        `Error fetching README content from ${readmeUrl}: ${error.message}`,
+      );
+    }
+  }
+
   async checkIfRepositoryExists(options: {
     repoOwner: string;
     repoName: string;

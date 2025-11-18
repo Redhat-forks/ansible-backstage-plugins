@@ -37,8 +37,6 @@ export const catalogModuleRhaap = createBackendModule({
         httpRouter,
         catalogProcessing,
         catalogModel,
-        discovery,
-        auth,
       }) {
         catalogModel.setFieldValidators(
           makeValidator({
@@ -79,8 +77,6 @@ export const catalogModuleRhaap = createBackendModule({
             logger,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
-            discovery: discovery,
-            auth: auth,
           })) as any,
         );
       },
