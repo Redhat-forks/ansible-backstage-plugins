@@ -466,8 +466,16 @@ export const RunTask = () => {
 
   const handleDownloadArchive = useCallback(async () => {
     const entity = await getMatchingEntity();
-    if (!entity?.spec?.definition || !entity?.spec?.readme) {
-      console.error('Entity, definition, or readme not available'); // eslint-disable-line no-console
+    if (
+      !entity?.spec?.definition ||
+      !entity?.spec?.readme ||
+      !entity?.spec?.mcp_vars ||
+      !entity?.spec?.ansible_cfg
+    ) {
+      // eslint-disable-next-line no-console
+      console.error(
+        'Entity, definition, readme, mcp_vars, or ansible_cfg not available',
+      );
       return;
     }
 
@@ -475,11 +483,15 @@ export const RunTask = () => {
       const entityName = entity.metadata?.name || 'execution-environment';
       const eeFileName = `${entityName}.yaml`;
       const readmeFileName = `README-${entityName}.md`;
+      const mcpVarsFileName = `mcp_vars.yaml`;
+      const ansibleCfgFileName = `ansible.cfg`;
       const archiveName = `${entityName}.tar`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },
         { name: readmeFileName, content: entity.spec.readme },
+        { name: mcpVarsFileName, content: entity.spec.mcp_vars },
+        { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
       ]);
 
       const blob = new Blob([tarData as BlobPart], {
