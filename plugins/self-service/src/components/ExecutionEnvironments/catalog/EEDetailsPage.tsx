@@ -32,7 +32,11 @@ import {
   InspectEntityDialog,
   UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
-import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
+import {
+  discoveryApiRef,
+  identityApiRef,
+  useApi,
+} from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import { MarkdownContent, Link as CoreLink } from '@backstage/core-components';
 
@@ -111,6 +115,7 @@ export const EEDetailsPage: React.FC = () => {
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const discoveryApi = useApi(discoveryApiRef);
+  const identityApi = useApi(identityApiRef);
 
   const callApi = useCallback(() => {
     catalogApi
@@ -210,7 +215,12 @@ export const EEDetailsPage: React.FC = () => {
           'scaffolder',
         )}/aap/get_ee_readme?${buildReadmeUrlParams()}`;
         if (!rawUrl) return;
-        fetch(rawUrl)
+        const { token } = await identityApi.getCredentials();
+        fetch(rawUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
           .then(r => {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.text();
@@ -222,7 +232,7 @@ export const EEDetailsPage: React.FC = () => {
       }
     };
     fetchDefaultReadme();
-  }, [entity, discoveryApi, buildReadmeUrlParams, defaultReadme]);
+  }, [entity, discoveryApi, buildReadmeUrlParams, defaultReadme, identityApi]);
 
   const getTechdocsUrl = (techdoc: any) => {
     const ref = techdoc?.metadata?.annotations?.['backstage.io/techdocs-ref'];
@@ -701,20 +711,16 @@ export const EEDetailsPage: React.FC = () => {
                       <DescriptionOutlinedIcon
                         style={{ color: '#1976d2', fontSize: 30 }}
                       />
-                      <CoreLink
-                        to={`catalog/default/component/${templateName}`}
+                      <Typography
+                        variant="body2"
+                        style={{
+                          color: '#1976d2',
+                          fontWeight: 600,
+                          marginTop: 6,
+                        }}
                       >
-                        <Typography
-                          variant="body2"
-                          style={{
-                            color: '#1976d2',
-                            fontWeight: 600,
-                            marginTop: 6,
-                          }}
-                        >
-                          VIEW <br /> TECHDOCS
-                        </Typography>
-                      </CoreLink>
+                        VIEW <br /> TECHDOCS
+                      </Typography>
                     </Box>
 
                     <Box
