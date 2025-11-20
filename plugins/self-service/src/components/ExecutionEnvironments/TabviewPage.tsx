@@ -4,9 +4,7 @@ import { Typography, Box, makeStyles } from '@material-ui/core';
 import { useLocation, useNavigate } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
-import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import { CreateContent } from './create/CreateContent';
-import { DocsContent } from './docs/DocsContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 
 const useStyles = makeStyles(() => ({
@@ -65,7 +63,6 @@ export const EEHeader = () => {
 const tabs = [
   { id: 0, label: 'Catalog', icon: <CategoryOutlinedIcon />, path: 'catalog' },
   { id: 1, label: 'Create', icon: <CreateComponentIcon />, path: 'create' },
-  { id: 2, label: 'Docs', icon: <LibraryBooks />, path: 'docs' },
 ];
 
 const getTabIndexFromPath = (pathname: string): number => {
@@ -116,8 +113,6 @@ export const EETabs: React.FC = () => {
         return <EntityCatalogContent onTabSwitch={handleTabSwitch} />;
       case 1:
         return <CreateContent />;
-      case 2:
-        return <DocsContent />;
       default:
         return <EntityCatalogContent onTabSwitch={setSelectedTab} />;
     }
