@@ -1284,6 +1284,8 @@ describe('RunTask', () => {
           definition:
             'version: 3\nimages:\n  base_image:\n    name: quay.io/test',
           readme: '# Test EE\nThis is a test execution environment.',
+          mcp_vars: 'mcp_vars: test',
+          ansible_cfg: 'ansible_cfg: test',
         },
       };
 
@@ -2157,7 +2159,8 @@ describe('RunTask', () => {
           const hasExpectedError = calls.some(
             call =>
               typeof call[0] === 'string' &&
-              call[0] === 'Entity, definition, or readme not available',
+              call[0] ===
+                'Entity, definition, readme, mcp_vars, or ansible_cfg not available',
           );
           expect(hasExpectedError).toBe(true);
         },
@@ -2195,6 +2198,8 @@ describe('RunTask', () => {
           type: 'execution-environment',
           definition: 'version: 3',
           readme: '# Test',
+          mcp_vars: 'mcp_vars: test',
+          ansible_cfg: 'ansible_cfg: test',
         },
       };
 
