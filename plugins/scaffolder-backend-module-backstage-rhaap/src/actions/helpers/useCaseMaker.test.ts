@@ -439,140 +439,6 @@ describe('ansible-aap:useCaseMaker:github', () => {
       'Error checking if Github Repository testOwner/testRepo exists',
     );
   });
-
-  it('fetchReadmeContent - should successfully fetch README content from GitHub', async () => {
-    const readmeContent = '# Test README\n\nThis is a test README file.';
-    server.use(
-      http.get(
-        'https://raw.githubusercontent.com/testOwner/testRepo/main/README.md',
-        () => {
-          return HttpResponse.text(readmeContent);
-        },
-      ),
-    );
-
-    config = new ConfigReader(MOCK_CONF.data);
-    ansibleConfig = getAnsibleConfig(config);
-    useCaseMaker = new UseCaseMaker({
-      ansibleConfig,
-      logger,
-      organization,
-      scmType,
-      apiClient: mockAnsibleService,
-      useCases,
-      token: MOCK_TOKEN,
-    });
-
-    const content = await useCaseMaker.fetchReadmeContent({
-      readmeUrl:
-        'https://raw.githubusercontent.com/testOwner/testRepo/main/README.md',
-    });
-
-    expect(content).toBe(readmeContent);
-  });
-
-  it('fetchReadmeContent - should handle GitHub fetch errors', async () => {
-    const originalFetch = global.fetch;
-    global.fetch = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('Failed to fetch'));
-
-    config = new ConfigReader(MOCK_CONF.data);
-    ansibleConfig = getAnsibleConfig(config);
-    useCaseMaker = new UseCaseMaker({
-      ansibleConfig,
-      logger,
-      organization,
-      scmType,
-      apiClient: mockAnsibleService,
-      useCases,
-      token: MOCK_TOKEN,
-    });
-
-    await expect(
-      useCaseMaker.fetchReadmeContent({
-        readmeUrl:
-          'https://raw.githubusercontent.com/testOwner/testRepo/main/README.md',
-      }),
-    ).rejects.toThrow(
-      'Error fetching README content from https://raw.githubusercontent.com/testOwner/testRepo/main/README.md: Failed to fetch',
-    );
-
-    global.fetch = originalFetch;
-  });
-
-  it('fetchReadmeContent - should handle network errors for GitHub', async () => {
-    const originalFetch = global.fetch;
-    global.fetch = jest.fn().mockRejectedValueOnce(new Error('Network error'));
-
-    config = new ConfigReader(MOCK_CONF.data);
-    ansibleConfig = getAnsibleConfig(config);
-    useCaseMaker = new UseCaseMaker({
-      ansibleConfig,
-      logger,
-      organization,
-      scmType,
-      apiClient: mockAnsibleService,
-      useCases,
-      token: MOCK_TOKEN,
-    });
-
-    await expect(
-      useCaseMaker.fetchReadmeContent({
-        readmeUrl:
-          'https://raw.githubusercontent.com/testOwner/testRepo/main/README.md',
-      }),
-    ).rejects.toThrow(
-      'Error fetching README content from https://raw.githubusercontent.com/testOwner/testRepo/main/README.md: Network error',
-    );
-
-    global.fetch = originalFetch;
-  });
-
-  it('fetchReadmeContent - should work without GitHub token', async () => {
-    const readmeContent = '# Test README\n\nThis is a test README file.';
-    const MOCK_CONF_NO_TOKEN = {
-      data: {
-        ...MOCK_CONF.data,
-        integrations: {
-          github: [
-            {
-              host: 'github.com',
-              // No token
-            },
-          ],
-        },
-      },
-    };
-
-    server.use(
-      http.get(
-        'https://raw.githubusercontent.com/testOwner/testRepo/main/README.md',
-        () => {
-          return HttpResponse.text(readmeContent);
-        },
-      ),
-    );
-
-    config = new ConfigReader(MOCK_CONF_NO_TOKEN.data);
-    ansibleConfig = getAnsibleConfig(config);
-    useCaseMaker = new UseCaseMaker({
-      ansibleConfig,
-      logger,
-      organization,
-      scmType,
-      apiClient: mockAnsibleService,
-      useCases,
-      token: MOCK_TOKEN,
-    });
-
-    const content = await useCaseMaker.fetchReadmeContent({
-      readmeUrl:
-        'https://raw.githubusercontent.com/testOwner/testRepo/main/README.md',
-    });
-
-    expect(content).toBe(readmeContent);
-  });
 });
 
 describe('ansible-aap:useCaseMaker:gitlab', () => {
@@ -933,7 +799,7 @@ spec:
     expect(result).toBeNull();
   });
 
-  it('should throw an error if tfails to fetch repository details', async () => {
+  it('should throw an error if it fails to fetch repository details', async () => {
     const invalidOptions = {
       value: 'devfile content',
       repositoryUrl: 'https://gitlab.com/invalid-url',
@@ -1067,13 +933,13 @@ spec:
     global.fetch = originalFetch;
   });
 
-  it('fetchReadmeContent - should successfully fetch README content from GitLab', async () => {
-    const readmeContent = '# Test README\n\nThis is a test README file.';
+  it('fetchGitlabFileContent - should successfully fetch file content from GitLab', async () => {
+    const fileContent = '# Test File\n\nThis is a test file content.';
     server.use(
       http.get(
-        'https://gitlab.com/testOwner/testRepo/-/raw/main/README.md',
+        'https://gitlab.com/testOwner/testRepo/-/raw/main/path/to/file.md',
         () => {
-          return HttpResponse.text(readmeContent);
+          return HttpResponse.text(fileContent);
         },
       ),
     );
@@ -1090,14 +956,46 @@ spec:
       token: MOCK_TOKEN,
     });
 
-    const content = await useCaseMaker.fetchReadmeContent({
-      readmeUrl: 'https://gitlab.com/testOwner/testRepo/-/raw/main/README.md',
+    const content = await useCaseMaker.fetchGitlabFileContent({
+      owner: 'testOwner',
+      repo: 'testRepo',
+      filePath: 'path/to/file.md',
+      branch: 'main',
     });
 
-    expect(content).toBe(readmeContent);
+    expect(content).toBe(fileContent);
   });
 
-  it('fetchReadmeContent - should handle GitLab fetch errors', async () => {
+  it('fetchGitlabFileContent - should throw error when GitLab host is not configured', async () => {
+    config = new ConfigReader(MOCK_CONF.data);
+    ansibleConfig = getAnsibleConfig(config);
+    useCaseMaker = new UseCaseMaker({
+      ansibleConfig,
+      logger,
+      organization,
+      scmType,
+      apiClient: mockAnsibleService,
+      useCases,
+      token: MOCK_TOKEN,
+    });
+
+    // Directly set scmIntegration to an object without host to test the error case
+    useCaseMaker.scmIntegration = {
+      token: 'mockToken',
+      // host is missing
+    } as any;
+
+    await expect(
+      useCaseMaker.fetchGitlabFileContent({
+        owner: 'testOwner',
+        repo: 'testRepo',
+        filePath: 'path/to/file.md',
+        branch: 'main',
+      }),
+    ).rejects.toThrow('Not Gitlab host configured.');
+  });
+
+  it('fetchGitlabFileContent - should handle fetch errors', async () => {
     const originalFetch = global.fetch;
     global.fetch = jest
       .fn()
@@ -1116,45 +1014,19 @@ spec:
     });
 
     await expect(
-      useCaseMaker.fetchReadmeContent({
-        readmeUrl: 'https://gitlab.com/testOwner/testRepo/-/raw/main/README.md',
+      useCaseMaker.fetchGitlabFileContent({
+        owner: 'testOwner',
+        repo: 'testRepo',
+        filePath: 'path/to/file.md',
+        branch: 'main',
       }),
-    ).rejects.toThrow(
-      'Error fetching README content from https://gitlab.com/testOwner/testRepo/-/raw/main/README.md: Failed to fetch',
-    );
+    ).rejects.toThrow('Error fetching file content: Failed to fetch');
 
     global.fetch = originalFetch;
   });
 
-  it('fetchReadmeContent - should handle network errors for GitLab', async () => {
-    const originalFetch = global.fetch;
-    global.fetch = jest.fn().mockRejectedValueOnce(new Error('Network error'));
-
-    config = new ConfigReader(MOCK_CONF.data);
-    ansibleConfig = getAnsibleConfig(config);
-    useCaseMaker = new UseCaseMaker({
-      ansibleConfig,
-      logger,
-      organization,
-      scmType,
-      apiClient: mockAnsibleService,
-      useCases,
-      token: MOCK_TOKEN,
-    });
-
-    await expect(
-      useCaseMaker.fetchReadmeContent({
-        readmeUrl: 'https://gitlab.com/testOwner/testRepo/-/raw/main/README.md',
-      }),
-    ).rejects.toThrow(
-      'Error fetching README content from https://gitlab.com/testOwner/testRepo/-/raw/main/README.md: Network error',
-    );
-
-    global.fetch = originalFetch;
-  });
-
-  it('fetchReadmeContent - should work without GitLab token', async () => {
-    const readmeContent = '# Test README\n\nThis is a test README file.';
+  it('fetchGitlabFileContent - should work without token', async () => {
+    const fileContent = '# Test File\n\nThis is a test file content.';
     const MOCK_CONF_NO_TOKEN = {
       data: {
         ...MOCK_CONF.data,
@@ -1171,9 +1043,9 @@ spec:
 
     server.use(
       http.get(
-        'https://gitlab.com/testOwner/testRepo/-/raw/main/README.md',
+        'https://gitlab.com/testOwner/testRepo/-/raw/main/path/to/file.md',
         () => {
-          return HttpResponse.text(readmeContent);
+          return HttpResponse.text(fileContent);
         },
       ),
     );
@@ -1190,37 +1062,41 @@ spec:
       token: MOCK_TOKEN,
     });
 
-    const content = await useCaseMaker.fetchReadmeContent({
-      readmeUrl: 'https://gitlab.com/testOwner/testRepo/-/raw/main/README.md',
+    const content = await useCaseMaker.fetchGitlabFileContent({
+      owner: 'testOwner',
+      repo: 'testRepo',
+      filePath: 'path/to/file.md',
+      branch: 'main',
     });
 
-    expect(content).toBe(readmeContent);
+    expect(content).toBe(fileContent);
   });
 
-  it('fetchReadmeContent - should throw error for unsupported SCM type', async () => {
-    const MOCK_CONF_UNSUPPORTED = {
-      data: {
-        ...MOCK_CONF.data,
-        integrations: {},
-      },
-    };
+  it('fetchGitlabFileContent - should handle network errors', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockRejectedValueOnce(new Error('Network error'));
 
-    config = new ConfigReader(MOCK_CONF_UNSUPPORTED.data);
+    config = new ConfigReader(MOCK_CONF.data);
     ansibleConfig = getAnsibleConfig(config);
     useCaseMaker = new UseCaseMaker({
       ansibleConfig,
       logger,
       organization,
-      scmType: 'Unsupported',
+      scmType,
       apiClient: mockAnsibleService,
       useCases,
       token: MOCK_TOKEN,
     });
 
     await expect(
-      useCaseMaker.fetchReadmeContent({
-        readmeUrl: 'https://example.com/README.md',
+      useCaseMaker.fetchGitlabFileContent({
+        owner: 'testOwner',
+        repo: 'testRepo',
+        filePath: 'path/to/file.md',
+        branch: 'main',
       }),
-    ).rejects.toThrow('Unsupported SCM type: Unsupported');
+    ).rejects.toThrow('Error fetching file content: Network error');
+
+    global.fetch = originalFetch;
   });
 });
