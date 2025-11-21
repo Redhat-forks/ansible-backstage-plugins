@@ -67,7 +67,12 @@ export function createEEDefinitionAction(options: {
         properties: {
           values: {
             type: 'object',
-            required: ['baseImage', 'eeFileName'],
+            required: [
+              'baseImage',
+              'eeFileName',
+              'eeDescription',
+              'publishToSCM',
+            ],
             properties: {
               eeFileName: {
                 title: 'Execution Environment File Name',
@@ -589,34 +594,25 @@ function generateReadme(
 
 This file tells how to build your defined **execution environment (EE)** using **Ansible Builder** (the tool used to build EEs). An **EE** is a container image that bundles all the tools and collections your automation needs to run consistently.
 
+## TL;DR: Build Your Execution Environment
 
-[Ansible Execution Environment Definition File: Getting Started Guide](#ansible-execution-environment-definition-file-getting-started-guide)
+**Quick Start**: Install \`ansible-builder\`, \`podman\` (or Docker), and \`ansible-navigator\`, then run:
 
-- [Step 1: Review What Was Generated](#step-1-review-what-was-generated)
+\`\`\`bash
+ansible-builder build --file ${eeFileName}.yaml --tag ${eeFileName}:latest --container-runtime podman
+\`\`\`
 
-- [Step 2: Confirm Access to Collection Sources](#step-2-confirm-access-to-collection-sources)
-
-- [Step 3: Install Required Tools](#step-3-install-required-tools)
-
-- [Step 4: Build Your Execution Environment](#step-4-build-your-execution-environment)
-
-- [Step 5 (Recommended): Test Your EE Locally](#step-5-recommended-test-your-ee-locally)
-
-- [Step 6: Push to a Container Registry](#step-6-push-to-a-container-registry)
-
-- [Step 7: Use Your EE in Ansible Automation Platform](#step-7-use-your-ee-in-ansible-automation-platform)
-
-- [Step 8 (Optional): Import EE template into self-service automation portal](#step-8-optional-import-ee-template-into-self-service-automation-portal)
+**Important**: This quick start only builds the EE. Please continue reading to configure collection sources, test your EE, push it to a registry, and use it in AAP.
 
 ## Step 1: Review What Was Generated
 
 First, let us review the files that were just created for you:
 
-- **\`${values.eeFileName}.yaml\`**: This is your EE's "blueprint." It's the main definition file that ansible-builder will use to construct your image.
-- **\`${values.eeFileName}-template.yaml\`**: This is the Ansible self-service automation portal template file that generated this. You can import it and use it as a base to create new templates for your portal.
-- **\`ansible.cfg\`**: This Ansible configuration file specifies the sources from which your collections will be retrieved, by default it includes **Automation Hub** and **Ansible Galaxy**.
-${mcpServers && mcpServers.length > 0 ? '- **\`mcp-vars.yaml\`**: This Ansible variables file contains variables for the selected **Model Context Protocol (MCP) servers** which will be used when installing them in the Execution Environment.' : ''}
-${publishToSCM ? '- **\`catalog-info.yaml\ `**: This is the Ansible self-service automation portal file that registers this as a "component" in your portal\'s catalog.' : ''}
+- **${values.eeFileName}.yaml**: This is your EE's "blueprint." It's the main definition file that ansible-builder will use to construct your image.
+- **${values.eeFileName}-template.yaml**: This is the Ansible self-service automation portal template file that generated this. You can import it and use it as a base to create new templates for your portal.
+- **ansible.cfg**: This Ansible configuration file specifies the sources from which your collections will be retrieved, by default it includes **Automation Hub** and **Ansible Galaxy**.
+${mcpServers && mcpServers.length > 0 ? '- **mcp-vars.yaml**: This Ansible variables file contains variables for the selected **Model Context Protocol (MCP) servers** which will be used when installing them in the Execution Environment.' : ''}
+${publishToSCM ? '- **catalog-info.yaml**: This is the Ansible self-service automation portal file that registers this as a "component" in your portal\'s catalog.' : ''}
 
 ## Step 2: Confirm Access to Collection Sources
 
@@ -630,7 +626,7 @@ If your EE relies on collections from **Automation Hub**, **Private Automation H
 
 If you do not have a token, please follow these steps:
 
-1. Navigate to [Ansible Automation Platform on the Red Hat Hybrid Cloud Console](Ansible Automation Platform on the Red Hat Hybrid Cloud Console).
+1. Navigate to [Ansible Automation Platform on the Red Hat Hybrid Cloud Console](https://console.redhat.com/ansible/automation-hub/token/).
 2. From the navigation panel, select **Automation Hub** → **Connect to Hub**.
 3. Under **Offline token**, click **Load Token**.
 4. Click the [**Copy to clipboard**] icon to copy the offline token.
@@ -761,7 +757,7 @@ podman login your-internal-registry.com
 podman push your-internal-registry.com/${eeFileName}:latest
 \`\`\`
 
-# Step 7: Use Your EE in Ansible Automation Platform
+## Step 7: Use Your EE in Ansible Automation Platform
 
 Once your execution environment is built and pushed to a registry, you need to register it in AAP.
 
@@ -785,7 +781,7 @@ For detailed instructions, see the official Red Hat Ansible Automation Platform 
 
 ## Step 8 (Optional): Import EE template into self-service automation portal
 
-If you want to reuse this execution environment template for future projects, you can import the generated \`${eeFileName}.yaml\` file into your self-service automation portal.
+If you want to reuse this execution environment template for future projects, you can import the generated **${eeFileName}.yaml** file into your self-service automation portal.
 
 #### Prerequisites:
 
@@ -1174,9 +1170,6 @@ spec:
           systemPackagesFile: \${{ parameters.systemPackagesFile or [] }}
           mcpServers: \${{ parameters.mcpServers or [] }}
           additionalBuildSteps: \${{ parameters.additionalBuildSteps or [] }}
-          sourceControlProvider: \${{ parameters.sourceControlProvider }}
-          repositoryOwner: \${{ parameters.repositoryOwner }}
-          repositoryName: \${{ parameters.repositoryName }}
 
     # Step 3: Validate the SCM repository (optional)
     - id: prepare-publish
@@ -1207,6 +1200,7 @@ spec:
             annotations:
               backstage.io/techdocs-ref: dir:.
               backstage.io/managed-by-location: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+              ansible.io/scm-provider: \${{ parameters.sourceControlProvider }}
           spec:
             type: execution-environment
             owner: \${{ steps['create-ee-definition'].output.owner }}
@@ -1277,17 +1271,18 @@ spec:
 
       - title: GitLab Merge Request
         url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
-        if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
+      if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
 
       - title: View details in catalog
         icon: catalog
         url: \${{ steps['create-ee-definition'].output.generatedEntityRef }}
+        if: \${{ not (steps['publish-github-pull-request'].output.remoteUrl or steps['publish-gitlab-merge-request'].output.mergeRequestUrl) }}
 
     text:
       - title: Next Steps
         content: |
           \${{ steps['create-ee-definition'].output.readmeContent }}
-    `;
+`;
 }
 
 function generateAnsibleConfigContent(): string {
