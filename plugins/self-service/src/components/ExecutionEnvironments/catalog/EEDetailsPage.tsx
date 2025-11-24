@@ -85,6 +85,7 @@ const useStyles = makeStyles(theme => ({
     },
   },
   markdownScroll: {
+    maxWidth: '60vw',
     maxHeight: '60vh',
     overflowY: 'auto',
     minHeight: 0,
@@ -645,7 +646,6 @@ export const EEDetailsPage: React.FC = () => {
                   >
                     About
                   </Typography>
-                  <Divider style={{ margin: '16px 0' }} />
                   {!(
                     entity &&
                     entity.metadata &&
@@ -748,9 +748,7 @@ export const EEDetailsPage: React.FC = () => {
                     </Box>
                   </Box>
                 )}
-
-                <Divider style={{ margin: '16px 0' }} />
-
+                <Divider style={{ margin: '12px -16px 12px' }} />
                 {/* Details */}
                 <Box>
                   <Typography
