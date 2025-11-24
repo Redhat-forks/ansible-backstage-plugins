@@ -103,7 +103,7 @@ export const EEListPage = ({
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
-  const { filters, updateFilters } = useEntityList();
+  const { filters } = useEntityList();
 
   const getUniqueOwnersAndTags = (entities: Entity[]) => {
     const owners = Array.from(
@@ -171,7 +171,6 @@ export const EEListPage = ({
   }, [ownerFilter, tagFilter, allEntities]);
 
   useEffectOnce(() => {
-    updateFilters({ ...filters, tags: new EntityTagFilter(['ansible']) });
     callApi();
   });
 
@@ -283,7 +282,7 @@ export const EEListPage = ({
         {filtered || (allEntities && allEntities.length > 0) ? (
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
-              <UserListPicker availableFilters={['starred']} />
+              <UserListPicker availableFilters={['starred', 'all']} />
               <Typography>Owner</Typography>
 
               <Paper className={classes.paper}>
