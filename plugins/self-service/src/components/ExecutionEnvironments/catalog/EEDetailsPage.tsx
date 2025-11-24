@@ -162,7 +162,6 @@ export const EEDetailsPage: React.FC = () => {
     // Clean URL
     const cleanUrl = sourceLocation.replace(/^url:/, '').replace(/\/$/, '');
     const url = new URL(cleanUrl);
-    const host = url.host;
 
     // Parts of pathname
     const parts = url.pathname.split('/').filter(Boolean);
