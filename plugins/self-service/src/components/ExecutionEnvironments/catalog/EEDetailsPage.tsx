@@ -386,15 +386,10 @@ export const EEDetailsPage: React.FC = () => {
     if (
       !entity?.spec?.definition ||
       !entity?.spec?.readme ||
-      !entity?.spec?.mcp_vars ||
       !entity?.spec?.ansible_cfg
     ) {
       // eslint-disable-next-line no-console
-      console.error(
-        'Entity, definition, readme, mcp_vars, or ansible_cfg not available',
-      );
-      console.error('Entity, definition, or readme not available'); // eslint-disable-line no-console
-
+      console.error('Entity, definition, readme or ansible_cfg not available');
       return;
     }
 
@@ -408,19 +403,26 @@ export const EEDetailsPage: React.FC = () => {
       const archiveName = `${
         entity.metadata.name || 'execution-environment'
       }.tar`;
-      const mcpVarsFileName = `mcp-vars.yaml`;
       const ansibleCfgFileName = `ansible.cfg`;
       const templateFileName = `${
         entity.metadata.name || 'execution-environment'
       }-template.yaml`;
 
-      const tarData = createTarArchive([
+      const rawdata = [
         { name: eeFileName, content: entity.spec.definition },
         { name: readmeFileName, content: entity.spec.readme },
-        { name: mcpVarsFileName, content: entity.spec.mcp_vars },
         { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
         { name: templateFileName, content: entity.spec.template },
-      ]);
+      ];
+
+      if (entity.spec.mcp_vars) {
+        const mcpVarsFileName = `mcp-vars.yaml`;
+        rawdata.push({
+          name: mcpVarsFileName,
+          content: entity.spec.mcp_vars,
+        });
+      }
+      const tarData = createTarArchive(rawdata);
 
       const blob = new Blob([tarData as BlobPart], {
         type: 'application/x-tar',
