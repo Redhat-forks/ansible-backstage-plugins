@@ -68,7 +68,7 @@ export const CreateContent = () => {
             <EntityTagPicker />
           </CatalogFilterLayout.Filters>
           <CatalogFilterLayout.Content>
-            <div data-testid="templates-container">
+            <div data-testid="templates-container">asa
               <TemplateGroups
                 groups={[
                   {
