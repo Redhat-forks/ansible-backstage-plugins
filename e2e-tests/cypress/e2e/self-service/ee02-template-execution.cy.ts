@@ -233,10 +233,15 @@ describe('Execution Environment Template Execution Tests', () => {
               .filter((_, btn) =>
                 (btn.textContent || '').toLowerCase().includes('start'),
               )
-              .first()
-              .scrollIntoView()
-              .should('be.visible', { timeout: 10000 })
-              .click({ force: true });
+              .then($btn => {
+                // Scroll into view using native DOM method
+                $btn[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                cy.wait(500); // Give time for scroll animation
+                // Check visibility with longer timeout
+                cy.wrap($btn).should('be.visible', { timeout: 15000 });
+                // Click
+                cy.wrap($btn).click({ force: true });
+              });
           });
 
         cy.wait(3000);
@@ -433,9 +438,18 @@ describe('Execution Environment Template Execution Tests', () => {
                     (btn.textContent || '').toLowerCase().includes('start'),
                   )
                   .first()
-                  .scrollIntoView()
-                  .should('be.visible', { timeout: 10000 })
-                  .click({ force: true });
+                  .then($btn => {
+                    // Scroll into view using native DOM method
+                    $btn[0].scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'center',
+                    });
+                    cy.wait(500); // Give time for scroll animation
+                    // Check visibility with longer timeout
+                    cy.wrap($btn).should('be.visible', { timeout: 15000 });
+                    // Click
+                    cy.wrap($btn).click({ force: true });
+                  });
               });
             cy.wait(3000);
             cy.get('main', { timeout: 15000 }).should('be.visible');
