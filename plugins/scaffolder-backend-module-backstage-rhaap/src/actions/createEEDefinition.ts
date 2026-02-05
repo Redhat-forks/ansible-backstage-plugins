@@ -1169,6 +1169,7 @@ spec:
           items:
             type: string
           ui:
+            field: EETagsPicker
             options:
               addable: true
               orderable: true
